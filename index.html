@@ -117,6 +117,9 @@ details.log summary{cursor:pointer;font-weight:700;padding:6px 0}
 .overlay{position:fixed;inset:0;background:rgba(10,14,20,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
 .overlay .box{background:var(--panel);border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:85vh;overflow:auto}
 .overlay h2{margin:0 0 8px;font-size:20px}
+.ovin{font:inherit;font-size:22px;letter-spacing:.2em;width:100%;padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);margin-top:6px}
+.net{font-size:12px;border-radius:999px;padding:2px 9px;border:1.5px solid var(--line);background:var(--panel)}
+.net.ok{border-color:var(--ok);color:var(--ok)}.net.ng{border-color:var(--b);color:var(--b)}
 .overlay .opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .legend{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.7}
 @media (prefers-reduced-motion:no-preference){.cell.tg{transition:box-shadow .15s}}
@@ -219,7 +222,10 @@ function perp(f){return [-f[1],f[0]];}
 function hasEnemyOnTile(c){return onBoard(c)&&charsAt(c.x,c.y).some(o=>o.team!==c.team);}
 function marked(c,byTeam){return c.marks.some(m=>m.team===byTeam);}
 function ctLeft(c){if(c.cd===null)return 0;const r=c.cd+D(c).skill.ct-S.round;return r>0?r:0;}
-function canAct(c){return S.phase==='play'&&c.team===S.active&&!c.wait&&c.stun===0;}
+function actorTeam(){return (S.phase==='draft'||S.phase==='place')?S.sp:S.active;}
+function myTurn(){return !NET.on||actorTeam()===NET.team;}
+function viewTeam(){return NET.on?NET.team:S.sp;}
+function canAct(c){return myTurn()&&S.phase==='play'&&c.team===S.active&&!c.wait&&c.stun===0;}
 
 /* ========== ダメージ・撃破 ========== */
 function damage(c,amt,kind,src,by){
@@ -365,7 +371,7 @@ function selectAt(x,y){
   UI.sel=list[(i+1)%list.length].uid;render();
 }
 function visible(c){
-  if(S.phase==='place'&&c.team!==S.sp)return false;
+  if(S.phase==='place'&&c.team!==viewTeam())return false;
   return true;
 }
 
@@ -378,7 +384,7 @@ function cellClick(x,y){
     if(m.kind==='multi'){return;}
     UI.mode=null;
   }
-  if(S.phase==='place'){placeClick(x,y);return;}
+  if(S.phase==='place'){if(myTurn())placeClick(x,y);return;}
   selectAt(x,y);
 }
 
@@ -609,7 +615,7 @@ async function allocate(defs,dmg,chooser){
   for(const r of ['T','S','D']){
     let g=groups[r];
     if(g.length>1&&rest>0&&rest<g.reduce((s,a)=>s+effHp(a),0)){
-      const first=await choose(`${TN[chooser]}の選択：同マス戦闘で先にダメージを与える${ROLE_NAME[r]}は？`,g.map(a=>({label:`${D(a).name}（耐久${effHp(a)}）`,value:a.uid})),false);
+      const first=await choose(`${TN[chooser]}の選択：同マス戦闘で先にダメージを与える${ROLE_NAME[r]}は？`,g.map(a=>({label:`${D(a).name}（耐久${effHp(a)}）`,value:a.uid})),false,chooser);
       g=[S.chars[first],...g.filter(a=>a.uid!==first)];
     }
     for(const a of g){const u=Math.min(rest,effHp(a));plan.push([a,u]);rest-=u;}
@@ -645,7 +651,7 @@ function endTurn(){
   }
   S.active=o;startTurn();
   UI.sel=null;UI.mode=null;UNDO=[];
-  showPass(`${TN[o]}のターン`,`ラウンド${S.round}。${TN[o]}に端末を渡してください。`,'始める',()=>render());
+  handoff(`${TN[o]}のターン`,`ラウンド${S.round}。${TN[o]}に端末を渡してください。`,'始める');
 }
 function startTurn(){
   S.step=1;
@@ -660,6 +666,10 @@ function checkWinNow(){
 }
 function finish(w,why){
   S.phase='over';S.winner=w;UI.mode=null;log(`ゲーム終了：${why}`,{type:'ゲーム終了',ap:w===null?'引き分け':TN[w]+'の勝利',val:S.round});
+  showResult();
+}
+function showResult(){
+  const w=S.winner,why=(S.ev.filter(e=>e.type==='ゲーム終了').pop()||{}).msg||'';
   showOv({title:w===null?'引き分け':`${TN[w]}の勝利！`,body:why+'<br>テストプレイの記録をCSVで保存できます。盤面の下のボタンからも、あとで保存できます。',opts:[{label:'行動ログをCSVで保存',primary:true,fn:()=>{dlLog();render();}},{label:'キャラ別集計をCSVで保存',fn:()=>{dlSummary();render();}},{label:'盤面を見る',fn:()=>render()}]});
 }
 
@@ -677,8 +687,8 @@ function draftDone(){
   S.roster[t].forEach(u=>log(`${TN[t]}が${D(S.chars[u]).name}を編成`,{type:'編成',a:S.chars[u]}));
   S.bench[t]=Object.keys(DEFS).filter(id=>!S.roster[t].includes(t+'-'+id)).map(id=>t+'-'+id);
   UI.pick={T:[],D:[],S:[]};
-  if(t===0){S.sp=1;showPass('プレイヤーBの編成','Bに端末を渡してください。','編成する',()=>render());}
-  else{S.phase='place';S.sp=0;S.placeStep='bld';showPass('プレイヤーAの配置','Aに端末を渡してください。Bの配置は見えません。','配置する',()=>render());}
+  if(t===0){S.sp=1;handoff('プレイヤーBの編成','Bに端末を渡してください。','編成する');}
+  else{S.phase='place';S.sp=0;S.placeStep='bld';handoff('プレイヤーAの配置','Aに端末を渡してください。Bの配置は見えません。','配置する');}
 }
 function placeClick(x,y){
   const t=S.sp;
@@ -709,7 +719,7 @@ function placeDone(){
   }
   if(activeChars(t).some(c=>c.x===null)){toast('5体すべてを配置してください');return;}
   UI.sel=null;
-  if(t===0){S.sp=1;S.placeStep='bld';showPass('プレイヤーBの配置','Bに端末を渡してください。Aの配置は見えません。','配置する',()=>render());}
+  if(t===0){S.sp=1;S.placeStep='bld';handoff('プレイヤーBの配置','Bに端末を渡してください。Aの配置は見えません。','配置する');}
   else{
     S.phase='play';
     showOv({title:'建物を公開して開始',body:'両者の配置が公開されます。先手を決めてください（じゃんけんなど）。',opts:[
@@ -718,13 +728,15 @@ function placeDone(){
 }
 function begin(f){S.first=f;S.active=f;S.round=1;startTurn();UNDO=[];log(`${TN[f]}が先手でゲーム開始`,{type:'ゲーム開始',ap:TN[f]});
   for(const t of [0,1]){activeChars(t).forEach(c=>log(`${TN[t]}の${D(c).name}を(${c.x},${c.y})に配置`,{type:'初期配置',a:c,tn:ARW[c.face.join(',')]}));}
-  for(const k in S.bld){const b=S.bld[k];log(`${TN[b.team]}が${BLD[b.type].n}を(${k})に配置`,{type:'建物配置',ap:TN[b.team],an:BLD[b.type].n,x:+k.split(',')[0],y:+k.split(',')[1]});}showPass(`${TN[f]}のターン`,`ラウンド1。${TN[f]}から始めます。`,'始める',()=>render());}
+  for(const k in S.bld){const b=S.bld[k];log(`${TN[b.team]}が${BLD[b.type].n}を(${k})に配置`,{type:'建物配置',ap:TN[b.team],an:BLD[b.type].n,x:+k.split(',')[0],y:+k.split(',')[1]});}handoff(`${TN[f]}のターン`,`ラウンド1。${TN[f]}から始めます。`,'始める');}
 
 /* ========== オーバーレイ ========== */
 function showOv(o){UI.ov=o;renderOv();}
 function closeOv(){UI.ov=null;renderOv();}
 function showPass(title,body,btn,fn){showOv({title,body,opts:[{label:btn,fn,primary:true}]});}
-function choose(title,opts,cancel){
+function handoff(title,body,btn){if(NET.on){UI.ov=null;renderOv();render();return;}showPass(title,body,btn,()=>render());}
+function choose(title,opts,cancel,forTeam){
+  if(NET.on&&forTeam!==undefined&&forTeam!==NET.team&&NET.conn)return remoteAsk(title,opts);
   return new Promise(res=>{
     const o=opts.map(x=>({label:x.label,fn:()=>res(x.value)}));
     if(cancel)o.push({label:'やめる',fn:()=>res(null)});
@@ -737,13 +749,13 @@ function renderOv(){
   const el=document.getElementById('ov');
   if(!UI.ov){el.innerHTML='';return;}
   const o=UI.ov;
-  el.innerHTML=`<div class="overlay" role="dialog" aria-modal="true"><div class="box"><h2>${o.title}</h2>${o.body?`<p>${o.body}</p>`:''}<div class="opts">${o.opts.map((x,i)=>`<button data-i="${i}" class="${x.primary?'primary':''}">${x.label}</button>`).join('')}</div></div></div>`;
-  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{const f=o.opts[+b.dataset.i].fn;UI.ov=null;renderOv();f&&f();});
-  const first=el.querySelector('button');first&&first.focus();
+  el.innerHTML=`<div class="overlay" role="dialog" aria-modal="true"><div class="box"><h2>${o.title}</h2>${o.body?`<p>${o.body}</p>`:''}${o.input?`<input id="ovIn" class="ovin" inputmode="numeric" autocomplete="off" placeholder="${o.input}">`:''}<div class="opts">${o.opts.map((x,i)=>`<button data-i="${i}" class="${x.primary?'primary':''}">${x.label}</button>`).join('')}</div></div></div>`;
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{const inp=el.querySelector('input');const v=inp?inp.value:'';const f=o.opts[+b.dataset.i].fn;UI.ov=null;renderOv();f&&f(v);});
+  const first=el.querySelector('input')||el.querySelector('button');first&&first.focus();
 }
 
 /* ========== 記録（CSV）・途中保存 ========== */
-const VER='v1.0';
+const VER='v1.1';
 const SAVE_KEY='noaim_save_v1';
 function csvCell(v){v=v===null||v===undefined?'':String(v);return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function toCSV(rows){return '﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';}
@@ -799,15 +811,185 @@ function summaryRows(){
 }
 function dlSummary(){download(`noaim_summary_${fileStamp()}.csv`,toCSV(summaryRows()));}
 let HOLD_SAVE=false;
-function saveGame(){if(HOLD_SAVE)return;try{if(S.phase==='draft'&&!S.ev.length){localStorage.removeItem(SAVE_KEY);return;}localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
-function loadGame(){try{const v=localStorage.getItem(SAVE_KEY);return v?JSON.parse(v):null;}catch(e){return null;}}
-function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+function saveKey(){return NET.on?SAVE_KEY+'_online':SAVE_KEY;}
+function saveGame(){if(HOLD_SAVE)return;try{if(S.phase==='draft'&&!S.ev.length&&!NET.on){localStorage.removeItem(saveKey());return;}localStorage.setItem(saveKey(),JSON.stringify(S));}catch(e){}}
+function loadGame(k){try{const v=localStorage.getItem(k||saveKey());return v?JSON.parse(v):null;}catch(e){return null;}}
+function clearSave(k){try{localStorage.removeItem(k||saveKey());}catch(e){}}
+
+/* ========== 2台で遊ぶ（オンライン） ========== */
+const NET={on:false,team:0,room:'',host:false,peer:null,conn:null,ver:0,lastSync:'',asks:{},askId:0,retry:null,hostRetry:null};
+const NET_KEY='noaim_net_v1';
+function saveNet(){try{localStorage.setItem(NET_KEY,JSON.stringify({room:NET.room,team:NET.team,host:NET.host,ver:NET.ver}));}catch(e){}}
+function loadNet(){try{const v=localStorage.getItem(NET_KEY);return v?JSON.parse(v):null;}catch(e){return null;}}
+function clearNet(){try{localStorage.removeItem(NET_KEY);}catch(e){}}
+function peerId(room){return 'noaim-v1-'+room+'-host';}
+function roomLink(){return location.origin+location.pathname+'?room='+NET.room;}
+function loadPeerJS(){
+  if(window.Peer)return Promise.resolve();
+  const urls=['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js','https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+  return new Promise((res,rej)=>{let i=0;const next=()=>{if(i>=urls.length){rej(new Error('lib'));return;}
+    const sc=document.createElement('script');sc.src=urls[i++];sc.onload=()=>res();sc.onerror=next;document.head.appendChild(sc);};next();});
+}
+function netSync(){
+  if(!NET.on)return;
+  const j=JSON.stringify(S);
+  if(j===NET.lastSync)return;
+  NET.lastSync=j;NET.ver++;saveNet();
+  if(NET.conn&&NET.conn.open){try{NET.conn.send({t:'state',S,ver:NET.ver,gid:S.gid});}catch(e){}}
+}
+function sendFull(){if(NET.conn&&NET.conn.open){try{NET.conn.send({t:'state',S,ver:NET.ver,gid:S.gid,force:true});}catch(e){}}}
+function turnMsg(){
+  if(S.phase==='draft')return ['あなたの番です','キャラを編成してください。'];
+  if(S.phase==='place')return ['あなたの番です','建物とキャラを配置してください。相手の配置は見えません。'];
+  return [`${TN[S.active]}（あなた）のターン`,`ラウンド${S.round}。あなたのターンです。`];
+}
+function applyState(ns,ver){
+  const pa=actorTeam(),pp=S.phase,pr=S.round;
+  S=ns;NET.ver=ver;NET.lastSync=JSON.stringify(S);saveNet();
+  UI.mode=null;if(UI.sel&&!S.chars[UI.sel])UI.sel=null;
+  if(UI.ov&&UI.ov.waiting){UI.ov=null;renderOv();}
+  render();
+  if(pp!=='over'&&S.phase==='over'){showResult();return;}
+  if(S.phase!=='over'&&myTurn()&&(pa!==actorTeam()||pp!==S.phase||pr!==S.round)){const [a,b]=turnMsg();showPass(a,b,'始める',()=>render());}
+}
+function onMsg(m){
+  if(!m||!m.t||m.t==='ping')return;
+  if(m.t==='hello'){
+    if(NET.host){if(m.gid!==S.gid||NET.ver>=m.ver)sendFull();}
+    else if(m.gid===S.gid&&S.gid&&NET.ver>m.ver)sendFull();
+    return;
+  }
+  if(m.t==='state'){
+    const fromHost=!NET.host;
+    if(m.ver>NET.ver||(fromHost&&(m.force||m.gid!==S.gid)))applyState(m.S,m.ver);
+    return;
+  }
+  if(m.t==='ask'){
+    showOv({title:m.title,body:'相手の同マス戦闘の結果、どのキャラにダメージを受けるかを選んでください。',opts:m.opts.map(o=>({label:o.label,fn:()=>{try{NET.conn.send({t:'answer',id:m.id,value:o.value});}catch(e){}render();}}))});
+    return;
+  }
+  if(m.t==='answer'){const a=NET.asks[m.id];if(a){delete NET.asks[m.id];if(UI.ov&&UI.ov.waiting){UI.ov=null;renderOv();}a.res(m.value);}}
+}
+function remoteAsk(title,opts){
+  return new Promise(res=>{
+    const id=++NET.askId;NET.asks[id]={res,first:opts[0].value};
+    try{NET.conn.send({t:'ask',id,title,opts:opts.map(o=>({label:o.label,value:o.value}))});}catch(e){delete NET.asks[id];res(opts[0].value);return;}
+    showOv({title:'相手の選択を待っています',body:title,opts:[],waiting:true});
+  });
+}
+function dropConn(c){
+  if(NET.conn!==c)return;
+  NET.conn=null;try{c.close();}catch(e){}
+  for(const id in NET.asks){const a=NET.asks[id];delete NET.asks[id];if(UI.ov&&UI.ov.waiting){UI.ov=null;renderOv();}a.res(a.first);}
+  render();toast('相手との接続が切れました。再接続を待っています');
+  if(!NET.host)joinRetry();
+}
+setInterval(()=>{
+  if(!NET.on||!NET.conn)return;
+  try{NET.conn.send({t:'ping'});}catch(e){}
+  if(Date.now()-NET.lastRecv>12000)dropConn(NET.conn);
+},4000);
+function attachConn(c){
+  c.on('open',()=>{
+    if(NET.conn&&NET.conn!==c){try{NET.conn.close();}catch(e){}}
+    NET.conn=c;NET.lastRecv=Date.now();clearTimeout(NET.retry);
+    c.send({t:'hello',ver:NET.ver,gid:S.gid,team:NET.team});
+    if(NET.host&&UI.ov&&UI.ov.waiting){UI.ov=null;renderOv();
+      if(S.phase==='draft'&&!S.ev.length)showPass('相手が参加しました','あなたはAです。キャラの編成から始めます。','編成する',()=>render());}
+    render();toast('相手とつながりました');
+  });
+  c.on('data',m=>{if(c===NET.conn)NET.lastRecv=Date.now();onMsg(m);});
+  c.on('close',()=>dropConn(c));
+  c.on('error',()=>{});
+}
+function netErr(e){
+  const t=e&&e.type;
+  if(t==='peer-unavailable'){if(!NET.host)joinRetry();return;}
+  if(t==='unavailable-id'&&NET.host){try{NET.peer.destroy();}catch(_){}clearTimeout(NET.hostRetry);NET.hostRetry=setTimeout(startHostPeer,4000);toast('部屋を準備しています…');return;}
+  if(t==='browser-incompatible'){toast('このブラウザでは2台で遊べません。別のブラウザで開いてください');return;}
+  toast('通信エラーが起きました。自動で再接続します');
+  if(NET.host){clearTimeout(NET.hostRetry);NET.hostRetry=setTimeout(()=>{if(NET.on&&(!NET.peer||NET.peer.destroyed))startHostPeer();},4000);}
+  else joinRetry();
+}
+function startHostPeer(){
+  if(!NET.on)return;
+  const p=new Peer(peerId(NET.room),{debug:0});NET.peer=p;
+  p.on('open',()=>render());
+  p.on('connection',c=>attachConn(c));
+  p.on('error',netErr);
+  p.on('disconnected',()=>{try{if(!p.destroyed)p.reconnect();}catch(e){}});
+}
+function connectHost(){
+  if(!NET.on||NET.conn||!NET.peer||NET.peer.destroyed||NET.peer.disconnected)return;
+  attachConn(NET.peer.connect(peerId(NET.room),{serialization:'json',reliable:true}));
+}
+function joinRetry(){clearTimeout(NET.retry);NET.retry=setTimeout(()=>{if(NET.on&&!NET.conn){if(!NET.peer||NET.peer.destroyed)startGuestPeer();else connectHost();}},3000);}
+function startGuestPeer(){
+  if(!NET.on)return;
+  const p=new Peer({debug:0});NET.peer=p;
+  p.on('open',()=>connectHost());
+  p.on('error',netErr);
+  p.on('disconnected',()=>{try{if(!p.destroyed)p.reconnect();}catch(e){}});
+}
+async function netStart(room,host,keepState){
+  NET.on=true;NET.room=room;NET.host=host;NET.team=host?0:1;
+  if(!keepState){NET.ver=0;S=fresh();clearSave();}
+  NET.lastSync=JSON.stringify(S);saveNet();UI.sel=null;UI.mode=null;
+  render();
+  try{await loadPeerJS();}catch(e){showOv({title:'通信の準備ができませんでした',body:'インターネットにつながっているか確認して、ページを読み込み直してください。',opts:[{label:'戻る',fn:()=>{netLeave();}}]});return;}
+  if(host)startHostPeer();else startGuestPeer();
+}
+function netCreate(){
+  const room=String(1000+Math.floor(Math.random()*9000));
+  netStart(room,true,false);
+  showWaitHost();
+}
+function showWaitHost(){
+  showOv({title:`部屋 ${NET.room} を作りました`,body:`友達にこのリンクを送るか、部屋番号 <b>${NET.room}</b> を伝えてください。相手が参加すると始まります。あなたはAです。<br><span class="small">${roomLink()}</span>`,waiting:true,opts:[
+    {label:'リンクをコピー',fn:()=>{try{navigator.clipboard.writeText(roomLink());toast('リンクをコピーしました');}catch(e){}showWaitHost();}},
+    {label:'やめる',fn:()=>netLeave()}]});
+}
+function netJoinNew(room){
+  netStart(room,false,false);
+  showOv({title:`部屋 ${room} に参加しています`,body:'相手の画面とつながるまで待ってください。あなたはBです。',waiting:true,opts:[{label:'やめる',fn:()=>netLeave()}]});
+}
+function netResume(meta,st){
+  S=st;NET.ver=meta.ver||0;
+  netStart(meta.room,meta.host,true);
+  if(S.phase==='play'&&S.step===3)S.step=2;
+  if(meta.host&&!S.ev.length)showWaitHost();
+}
+function netLeave(){
+  NET.on=false;clearTimeout(NET.retry);clearTimeout(NET.hostRetry);
+  try{NET.conn&&NET.conn.close();}catch(e){}try{NET.peer&&NET.peer.destroy();}catch(e){}
+  NET.conn=null;NET.peer=null;clearNet();
+  try{history.replaceState(null,'',location.pathname);}catch(e){}
+  showTitle();
+}
+function showTitle(){
+  HOLD_SAVE=true;NET.on=false;S=fresh();UI=freshUI();render();
+  const go=f=>v=>{HOLD_SAVE=false;f(v);};
+  const local=loadGame(SAVE_KEY),meta=loadNet(),netS=loadGame(SAVE_KEY+'_online');
+  const opts=[];
+  if(meta&&netS)opts.push({label:`部屋${meta.room}の続きに戻る（あなたは${TN[meta.team]}）`,primary:true,fn:go(()=>netResume(meta,netS))});
+  if(local&&local.ev&&local.ev.length)opts.push({label:`1台で遊ぶ：前回の続きから（ラウンド${local.round}）`,primary:!opts.length,fn:go(()=>{S=local;if(S.phase==='play'&&S.step===3)S.step=2;render();})});
+  opts.push({label:'1台で遊ぶ（新しく始める）',primary:!opts.length,fn:go(()=>{clearSave(SAVE_KEY);S=fresh();render();showPass('1台で遊ぶ','1台の端末を2人で交代して遊びます。まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());})});
+  opts.push({label:'部屋を作る（2台で遊ぶ）',fn:go(()=>{clearNet();clearSave(SAVE_KEY+'_online');netCreate();})});
+  opts.push({label:'部屋に参加する（2台で遊ぶ）',fn:()=>showJoin()});
+  showOv({title:'No AIM テストプレイ',body:'遊び方を選んでください。2台で遊ぶときは、1人が部屋を作り、もう1人が部屋番号で参加します。',opts});
+}
+function showJoin(){
+  showOv({title:'部屋に参加',body:'友達から教えてもらった4けたの部屋番号を入れてください。',input:'1234',opts:[
+    {label:'参加する',primary:true,fn:(v)=>{v=String(v||'').replace(/\D/g,'');if(v.length!==4){showJoin();toast('4けたの数字を入れてください');return;}HOLD_SAVE=false;clearNet();clearSave(SAVE_KEY+'_online');netJoinNew(v);}},
+    {label:'戻る',fn:()=>showTitle()}]});
+}
 
 /* ========== 描画 ========== */
 function esc(s){return String(s);}
 function render(){
   const app=document.getElementById('app');
-  let h=`<header><h1>No AIM <span class="x" aria-hidden="true"></span> <span class="ver">${VER}</span></h1><div class="btns" style="margin:0"><button id="bNew">最初から</button></div></header>`;
+  let h=`<header><h1>No AIM <span class="x" aria-hidden="true"></span> <span class="ver">${VER}</span></h1><div class="btns" style="margin:0"><button id="bNew">${NET.on?'部屋を出る':'最初から'}</button></div></header>${NET.on?`<div style="margin:-2px 0 8px"><span class="net ${NET.conn?'ok':'ng'}">部屋 ${NET.room}・あなたは${TN[NET.team]}・${NET.conn?'接続中':'相手とつながっていません'}</span></div>`:''}`;
+  if(NET.on&&S.phase!=='over'&&!myTurn())h+=`<div class="hint"><b>${S.phase==='draft'?'相手が編成しています':S.phase==='place'?'相手が配置しています（相手の配置は見えません）':`${TN[S.active]}のターンです。相手の操作がこの画面に反映されます`}</b></div>`;
   if(S.phase==='draft')h+=renderDraft();
   else{
     h+=renderStatus();
@@ -817,12 +999,13 @@ function render(){
     if(S.phase==='place')h+=renderPlace();
     else h+=renderPlay();
     if(S.phase!=='place')h+=`<div class="btns"><button id="bCsvLog">行動ログをCSVで保存</button><button id="bCsvSum">キャラ別集計をCSVで保存</button></div>`;
-    h+=`<details class="log"><summary>ログ</summary><ol reversed>${S.log.slice().reverse().map(l=>`<li>${l}</li>`).join('')}</ol></details>`;
+    if(S.phase!=='place')h+=`<details class="log"><summary>ログ</summary><ol reversed>${S.log.slice().reverse().map(l=>`<li>${l}</li>`).join('')}</ol></details>`;
     h+=`<p class="legend">マスの色は領土、左上の三角は占領度1、点線の枠は占領封鎖、建物はマスの模様と左下の記号で表示（▲と太枠は高台で小さな矢印が階段側、🌲と緑は木、▦と斜線はブロック壁）。🤖は回復ボット。キャラの上の小さな三角が向きです。同じマスを続けてタップすると、重なっているキャラを順に選べます。</p>`;
   }
   app.innerHTML=h;
   bind();
   saveGame();
+  netSync();
 }
 function renderStatus(){
   const a=count(0),b=count(1);
@@ -846,11 +1029,11 @@ function renderBoard(){
     let isT=tg&&tg.has(k);
     if(isT)cls+=' tg';
     if(isT&&UI.mode.kind==='multi'&&tg.get(k).some(v=>chosen.includes(v)))cls+=' pick';
-    if(S.phase==='place'&&inB(x,y)&&(S.placeStep==='bld'?S.owner[x][y]===S.sp:startCol(S.sp,x)))cls+=' tg';
+    if(S.phase==='place'&&myTurn()&&inB(x,y)&&(S.placeStep==='bld'?S.owner[x][y]===S.sp:startCol(S.sp,x)))cls+=' tg';
     let inner='';
     if(inB(x,y)){
       const b=bAt(x,y);
-      if(b&&!(S.phase==='place'&&b.team!==S.sp)){
+      if(b&&!(S.phase==='place'&&b.team!==viewTeam())){
         inner+=`<span class="bpat ${b.type}"></span><span class="bld">${BLD[b.type].g}</span>`;
         if(b.type==='hg'){const s=b.stair;const pos=s[1]<0?'top:0;left:50%;transform:translateX(-50%)':s[1]>0?'bottom:0;left:50%;transform:translateX(-50%)':s[0]<0?'left:1px;top:50%;transform:translateY(-50%)':'right:1px;top:50%;transform:translateY(-50%)';inner+=`<span class="stair" style="${pos}">${ARW[s.join(',')]}</span>`;}
       }
@@ -874,6 +1057,7 @@ function renderHint(){
 }
 function renderDraft(){
   const t=S.sp;
+  if(!myTurn())return `<p>相手がキャラを編成しています。終わるとあなたの番になります。</p>`;
   let h=`<div class="status"><span class="chip ${t?'b':'a'}">${TN[t]}の編成</span></div><p>Tank 2体から1体、DPS 3体から2体、Support 3体から2体を選んでください。選ばなかったキャラは控えになり、リスポーン時に同じ役割どうしで交代できます。</p>`;
   for(const r of ['T','D','S']){
     h+=`<h3>${ROLE_NAME[r]}（${UI.pick[r].length}/${PICK[r]}）</h3><div class="cards">`;
@@ -886,6 +1070,7 @@ function renderDraft(){
 }
 function renderPlace(){
   const t=S.sp;let h='<div class="panel">';
+  if(!myTurn())return h+'<p class="small" style="margin:0">相手が建物とキャラを配置しています。</p></div>';
   if(S.placeStep==='bld'){
     const n=Object.values(S.bld).filter(b=>b.team===t).length;
     h+=`<h2>建物の配置（${n}/3）</h2><p class="small">種類を選んで、自分の領土のマスをタップ。置いた建物をもう一度タップすると外せます。</p><div class="btns">${Object.keys(BLD).map(k=>`<button data-bt="${k}" class="${UI.bType===k?'on':''}">${BLD[k].g} ${BLD[k].n}</button>`).join('')}</div>`;
@@ -912,7 +1097,7 @@ function rosterHtml(t,place){
 }
 function renderPlay(){
   let h='<div class="panel">';
-  if(S.phase==='play'){
+  if(S.phase==='play'&&myTurn()){
     const stepBtn=S.step===1?'<button class="primary" id="bStep">段階②へ進む</button>':S.step===2?'<button class="primary" id="bStep">同マス戦闘へ進む</button>':S.step===4?'<button class="primary" id="bEnd">ターン終了</button>':'';
     h+=`<div class="btns" style="margin-top:0">${stepBtn}<button id="bUndo" ${UNDO.length&&S.step<3?'':'disabled'}>1手戻す</button></div>`;
     h+=rosterHtml(S.active,false);
@@ -959,7 +1144,7 @@ function charPanel(c){
 function bind(){
   const q=(s)=>document.querySelectorAll(s);
   const on=(id,f)=>{const e=document.getElementById(id);if(e)e.onclick=f;};
-  on('bNew',()=>showOv({title:'最初からやり直しますか？',body:'現在のゲームと記録は消えます。記録を残す場合は、先にCSVで保存してください。',opts:[{label:'最初から',primary:true,fn:()=>{clearSave();S=fresh();UI=freshUI();UNDO=[];render();showPass('No AIM テストプレイ','まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());}},{label:'行動ログをCSVで保存',fn:()=>{dlLog();render();}},{label:'やめる'}]}));
+  on('bNew',()=>NET.on?showOv({title:'部屋を出ますか？',body:'この端末の接続を切ります。記録を残す場合は、先にCSVで保存してください。あとで同じ部屋番号で戻ることもできます。',opts:[{label:'部屋を出る',primary:true,fn:()=>{netLeave();}},{label:'行動ログをCSVで保存',fn:()=>{dlLog();render();}},{label:'やめる'}]}):showOv({title:'最初からやり直しますか？',body:'現在のゲームと記録は消えます。記録を残す場合は、先にCSVで保存してください。',opts:[{label:'最初から',primary:true,fn:()=>{clearSave();UNDO=[];showTitle();}},{label:'行動ログをCSVで保存',fn:()=>{dlLog();render();}},{label:'やめる'}]}));
   q('.cell[data-x]').forEach(e=>{const f=()=>cellClick(+e.dataset.x,+e.dataset.y);e.onclick=f;e.onkeydown=(ev)=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();f();}};});
   q('[data-draft]').forEach(e=>e.onclick=()=>{const [r,id]=e.dataset.draft.split(':');draftToggle(r,id);});
   on('bDraft',draftDone);
@@ -978,16 +1163,18 @@ function bind(){
 
 /* ========== 起動 ========== */
 S=fresh();UI=freshUI();
-const SAVED=loadGame();
-if(SAVED&&SAVED.ev&&SAVED.ev.length){
-  HOLD_SAVE=true;render();
-  showOv({title:'前回のゲームが残っています',body:`ラウンド${SAVED.round}・${SAVED.phase==='over'?'終了済み':'途中'}のゲームです。続きから再開すると、記録もそのまま引き継がれます。`,opts:[
-    {label:'続きから再開',primary:true,fn:()=>{HOLD_SAVE=false;S=SAVED;if(S.phase==='play'&&S.step===3)S.step=2;render();}},
-    {label:'新しく始める',fn:()=>{HOLD_SAVE=false;clearSave();S=fresh();render();showPass('No AIM テストプレイ','1台の端末を2人で交代して遊ぶモードです。まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());}}]});
-}else{
-render();
-showPass('No AIM テストプレイ','1台の端末を2人で交代して遊ぶモードです。まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());
-}
+(function boot(){
+  const q=new URLSearchParams(location.search).get('room');
+  const room=q&&/^\d{4}$/.test(q)?q:null;
+  if(room){
+    const meta=loadNet(),st=loadGame(SAVE_KEY+'_online');
+    HOLD_SAVE=false;
+    if(meta&&meta.room===room&&st)netResume(meta,st);
+    else{clearNet();clearSave(SAVE_KEY+'_online');netJoinNew(room);}
+    return;
+  }
+  showTitle();
+})();
 </script>
 </body>
 </html>
