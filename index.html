@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>No AIM テストプレイ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8EBEF; --panel:#FFFFFF; --ink:#1D2330; --sub:#5B6475; --line:#C5CBD4;
+  --a:#2B6CD4; --a-soft:#D3E1F7; --b:#D5462A; --b-soft:#F7D9D1; --neu:#DADDE3;
+  --hl:#F2B705; --hl-soft:rgba(242,183,5,.38); --ok:#2E9D6A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141922; --panel:#1E2430; --ink:#E6E9EF; --sub:#9AA3B2; --line:#374152;
+    --a:#5B93EC; --a-soft:#1E3357; --b:#EE6B4F; --b-soft:#4B2520; --neu:#2A313D;
+    --hl-soft:rgba(242,183,5,.32);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141922; --panel:#1E2430; --ink:#E6E9EF; --sub:#9AA3B2; --line:#374152;
+  --a:#5B93EC; --a-soft:#1E3357; --b:#EE6B4F; --b-soft:#4B2520; --neu:#2A313D;
+  --hl-soft:rgba(242,183,5,.32);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;line-height:1.55}
+.wrap{max-width:620px;margin:0 auto;padding:12px 10px 40px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+h1{font-family:"Dela Gothic One","Hiragino Sans",sans-serif;font-weight:400;font-size:30px;margin:0;letter-spacing:.02em;line-height:1}
+h1 .x{display:inline-block;width:.8em;height:.8em;border:3px solid currentColor;border-radius:50%;position:relative;vertical-align:-.02em;margin-left:.1em;width:.6em;height:.6em}
+h1 .ver{font-family:"Zen Kaku Gothic New",sans-serif;font-size:12px;color:var(--sub);letter-spacing:0;vertical-align:middle}
+h1 .x::after{content:"";position:absolute;left:50%;top:-25%;height:150%;border-left:3px solid var(--b);transform:translateX(-50%) rotate(45deg)}
+.small{font-size:12px;color:var(--sub)}
+button{font:inherit;color:inherit;background:var(--panel);border:1.5px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;min-height:38px}
+button:hover:not(:disabled){border-color:var(--ink)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,.cell:focus-visible{outline:3px solid var(--hl);outline-offset:1px}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+button.on{background:var(--hl);border-color:var(--hl);color:#1D2330;font-weight:700}
+
+.status{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.chip{border-radius:999px;padding:3px 10px;font-size:13px;background:var(--panel);border:1.5px solid var(--line)}
+.chip.a{background:var(--a);border-color:var(--a);color:#fff;font-weight:700}
+.chip.b{background:var(--b);border-color:var(--b);color:#fff;font-weight:700}
+
+.terr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:10px;font-family:"Dela Gothic One",sans-serif}
+.terr .bar{position:relative;height:12px;border-radius:6px;overflow:hidden;background:var(--neu);display:flex}
+.terr .bar i{display:block;height:100%}
+.terr .bar .mk{position:absolute;top:-3px;bottom:-3px;border-left:2px dashed var(--ink);opacity:.6}
+.terr .na{color:var(--a);font-size:20px}.terr .nb{color:var(--b);font-size:20px}
+
+.board{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;user-select:none;-webkit-user-select:none}
+.cell{position:relative;aspect-ratio:1;border-radius:4px;background:var(--neu);display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:2px 1px;padding:2px 1px;cursor:pointer}
+.cell.void{background:transparent;cursor:default}
+.cell.spawn{background:repeating-linear-gradient(45deg,var(--panel) 0 4px,var(--neu) 4px 8px);border:2px solid var(--line)}
+.cell.spawn.t0{border-color:var(--a)}.cell.spawn.t1{border-color:var(--b)}
+.cell.o0{background:var(--a-soft)}.cell.o1{background:var(--b-soft)}
+.cell .bpat{position:absolute;inset:0;border-radius:4px;pointer-events:none;z-index:0}
+.cell .bpat.hg{box-shadow:inset 0 0 0 3px var(--ink);background:linear-gradient(to bottom,rgba(255,255,255,.35),transparent)}
+.cell .bpat.tree{background:radial-gradient(circle at 50% 50%,rgba(46,157,106,.45),rgba(46,157,106,.18))}
+.cell .bpat.wall{background:repeating-linear-gradient(45deg,rgba(80,88,104,.45) 0 2px,transparent 2px 6px)}
+.cell .bld{position:absolute;left:1px;bottom:1px;font-size:9px;line-height:1;padding:1px 2px;border-radius:3px;background:var(--panel);color:var(--ink);font-weight:700;pointer-events:none;z-index:2}
+.cell .stair{position:absolute;z-index:2;font-size:9px;font-weight:700;line-height:1;pointer-events:none;color:var(--ink)}
+.cell .occ{position:absolute;top:0;left:0;width:0;height:0;border-style:solid;border-width:12px 12px 0 0;pointer-events:none}
+.cell .occ.t0{border-color:var(--a) transparent transparent transparent}
+.cell .occ.t1{border-color:var(--b) transparent transparent transparent}
+.cell .lock{position:absolute;inset:1px;border:2px dashed;border-radius:3px;pointer-events:none}
+.cell .lock.t0{border-color:var(--a)}.cell .lock.t1{border-color:var(--b)}
+.cell .bot{position:absolute;right:1px;bottom:0;z-index:2;font-size:11px;pointer-events:none}
+.cell.tg{box-shadow:inset 0 0 0 3px var(--hl)}
+.cell.tg::before{content:"";position:absolute;inset:0;background:var(--hl-soft);pointer-events:none}
+.cell.pick::before{content:"";position:absolute;inset:0;background:var(--hl);opacity:.75;pointer-events:none}
+
+.tok{position:relative;width:46%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(8px,2.5vw,13px);color:#fff;line-height:1;z-index:1}
+.tok.t0{background:var(--a)}.tok.t1{background:var(--b)}
+.tok.sel{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--hl)}
+.tok.stun{opacity:.45}
+.tok.wait{filter:grayscale(1);opacity:.6}
+.tok .f{position:absolute;inset:-6px;pointer-events:none}
+.tok .f::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:5px solid var(--ink)}
+.tok .hp{position:absolute;left:10%;right:10%;bottom:-3px;height:3px;background:rgba(0,0,0,.25);border-radius:2px;overflow:hidden}
+.tok .hp i{display:block;height:100%;background:var(--ok)}
+.tok.hidden{visibility:hidden}
+
+.hint{margin:10px 0 0;padding:9px 12px;border-radius:8px;background:var(--hl-soft);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hint b{flex:1 1 auto}
+.panel{background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+.panel h2{font-size:17px;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+.panel h3{font-size:14px;margin:12px 0 6px}
+.role{font-size:11px;border-radius:4px;padding:1px 6px;color:#fff;font-weight:700}
+.role.T{background:#6B5BD6}.role.D{background:#C2410C}.role.S{background:#15803D}
+.stats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--sub);margin:4px 0}
+.stats b{color:var(--ink)}
+.abil{font-size:13px;margin:4px 0;color:var(--sub)}
+.abil b{color:var(--ink)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.face{display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,36px);gap:4px}
+.face button{padding:0;min-height:0}
+.roster{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.roster button{display:flex;align-items:center;gap:6px;padding:5px 9px}
+.roster .dot{width:10px;height:10px;border-radius:50%}
+.roster .dot.t0{background:var(--a)}.roster .dot.t1{background:var(--b)}
+.roster .done{opacity:.55}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.card{border:1.5px solid var(--line);border-radius:10px;padding:9px;text-align:left;background:var(--panel);cursor:pointer}
+.card.on{border-color:var(--hl);box-shadow:inset 0 0 0 2px var(--hl)}
+.card .nm{font-weight:700}
+details.log{margin-top:10px}
+details.log summary{cursor:pointer;font-weight:700;padding:6px 0}
+.log ol{margin:0;padding-left:20px;font-size:13px;max-height:360px;overflow:auto}
+.overlay{position:fixed;inset:0;background:rgba(10,14,20,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.overlay .box{background:var(--panel);border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:85vh;overflow:auto}
+.overlay h2{margin:0 0 8px;font-size:20px}
+.overlay .opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.legend{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.7}
+@media (prefers-reduced-motion:no-preference){.cell.tg{transition:box-shadow .15s}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="ov"></div>
+<script>
+"use strict";
+/* ========== データ ========== */
+const DEFS={
+  guardian:{name:'ガーディアン',s:'ガ',role:'T',hp:12,mob:2,atk:2,rng:1,
+    skill:{name:'防衛指令',ct:3,d:'自分か2マス以内の味方1体に耐久＋3（相手ターン2回終了まで・最大値超過可）'},
+    ult:{name:'威圧',d:'自分中心3×3の敵全員を、次の相手ターン終了まで行動不能'}},
+  charger:{name:'チャージャー',s:'チ',role:'T',hp:10,mob:4,atk:2,rng:1,
+    skill:{name:'突進',ct:3,d:'前方へ最大3マス。敵に接触で停止し1マス押し出す。次の相手ターン終了まで耐久＋3'},
+    ult:{name:'フルチャージ',d:'前方へ最大5マス。敵を2マス押し出す。停止マスが敵領土なら占領度＋1'}},
+  sniper:{name:'スナイパー',s:'ス',role:'D',hp:4,mob:2,atk:5,rng:4,
+    skill:{name:'狙撃体勢',ct:2,d:'このターン移動不可。左前・前・右前から列を選び射程4で攻撃できる'},
+    ult:{name:'貫通弾',d:'前方直線上の敵全員に攻撃力5'}},
+  assassin:{name:'アサシン',s:'ア',role:'D',hp:4,mob:4,atk:4,rng:1,
+    trait:'階段のない方向からも高台に登れる',
+    skill:{name:'背面攻撃',ct:2,d:'このターン、敵の背中側から攻撃すると攻撃力＋2'},
+    ult:{name:'急襲',d:'盤上の敵1体の背中側のマスへ移動'}},
+  bomber:{name:'ボンバー',s:'ボ',role:'D',hp:5,mob:3,atk:4,rng:2,
+    skill:{name:'集中砲火',ct:2,d:'このターン攻撃力＋2'},
+    ult:{name:'重力弾',d:'射程3以内のマスへ周囲8マスの敵を引き寄せ、そのマスの敵全員に攻撃力3'}},
+  healer:{name:'ヒーラー',s:'ヒ',role:'S',hp:5,mob:2,atk:1,rng:3,heal:3,hrng:3,
+    skill:{name:'回復ボット',ct:3,d:'2マス以内の自領土にボット設置。毎ターン周囲の味方を2回復。最大3ターン'},
+    ult:{name:'守護の光',d:'2マス以内の味方全員に耐久＋5（次の相手ターン終了まで）'}},
+  booster:{name:'ブースター',s:'ブ',role:'S',hp:5,mob:3,atk:2,rng:2,heal:2,hrng:2,
+    skill:{name:'加速',ct:3,d:'自分を含む2マス以内の味方全員の機動力をこのターン＋2'},
+    ult:{name:'陣地拡張',d:'射程3以内の占領度0・敵のいないマスを最大3つ選び占領度＋1'}},
+  lockdown:{name:'ロックダウン',s:'ロ',role:'S',hp:4,mob:2,atk:2,rng:3,heal:2,hrng:3,
+    skill:{name:'マーキング',ct:3,d:'3マス以内の敵1体。次の自分のターン終了まで、その敵への味方の攻撃力＋1（同マス戦闘では参加する味方1体ごとに＋1）'},
+    ult:{name:'占領封鎖',d:'射程3以内を中心に3×3。相手ターン2回分、敵は占領度を上げられない'}},
+};
+const POOL={T:['guardian','charger'],D:['sniper','assassin','bomber'],S:['healer','booster','lockdown']};
+const PICK={T:1,D:2,S:2};
+const ROLE_NAME={T:'Tank',D:'DPS',S:'Support'};
+const PRIO={T:0,S:1,D:2};
+const TN=['A','B'];
+const DIR4=[[0,-1],[1,0],[0,1],[-1,0]];
+const ARW={'0,-1':'↑','1,0':'→','0,1':'↓','-1,0':'←'};
+const BLD={hg:{n:'高台',g:'▲'},tree:{n:'木',g:'🌲'},wall:{n:'ブロック壁',g:'▦'}};
+const WIN=38, MAXR=10;
+
+/* ========== 状態 ========== */
+let S, UI, UNDO=[];
+function fresh(){
+  const owner=[],occ=[],lock=[];
+  for(let x=0;x<=10;x++){owner[x]=[];occ[x]=[];lock[x]=[];
+    for(let y=0;y<7;y++){owner[x][y]=(x>=1&&x<=4)?0:(x>=6&&x<=9)?1:null;occ[x][y]=null;lock[x][y]=[];}}
+  const chars={};
+  for(const t of [0,1]) for(const id in DEFS){
+    chars[t+'-'+id]={uid:t+'-'+id,team:t,id,x:null,y:null,face:t?[-1,0]:[1,0],hp:DEFS[id].hp,temps:[],cd:null,ult:false,stun:0,marks:[],wait:false,skip:0};
+    resetFlags(chars[t+'-'+id]);
+  }
+  return {phase:'draft',sp:0,first:0,active:0,round:1,step:1,owner,occ,lock,bld:{},bots:[],roster:[[],[]],bench:[[],[]],chars,log:[],ev:[],gid:'',t0:0,turnT0:0,winner:null,botId:0,heals:[]};
+}
+function resetFlags(c){c.moved=false;c.skillT=false;c.ultT=false;c.inBattle=false;c.acted=false;c.faces=0;c.mob=0;c.focus=false;c.back=false;c.snipe=false;c.swapOk=false;}
+function freshUI(){return {sel:null,mode:null,bType:'hg',stair:[0,1],pick:{T:[],D:[],S:[]},ov:null};}
+
+/* ========== 補助 ========== */
+const K=(x,y)=>x+','+y;
+const inB=(x,y)=>x>=1&&x<=9&&y>=0&&y<=6;
+const spawn=t=>t===0?{x:0,y:3}:{x:10,y:3};
+const D=c=>DEFS[c.id];
+const man=(a,b,x,y)=>Math.abs(a-x)+Math.abs(b-y);
+const other=t=>1-t;
+function onBoard(c){return c.x!==null&&inB(c.x,c.y);}
+function atSpawn(c){const s=spawn(c.team);return c.x===s.x&&c.y===s.y;}
+function activeChars(t){return S.roster[t].map(u=>S.chars[u]);}
+function allActive(){return [...activeChars(0),...activeChars(1)];}
+function charsAt(x,y){return allActive().filter(c=>c.x===x&&c.y===y);}
+function bAt(x,y){return S.bld[K(x,y)]||null;}
+function botAt(x,y){return S.bots.find(b=>b.x===x&&b.y===y)||null;}
+function effHp(c){return c.hp+c.temps.reduce((s,t)=>s+t.amt,0);}
+function tempSum(c){return c.temps.reduce((s,t)=>s+t.amt,0);}
+function log(m,d){
+  d=d||{};
+  S.log.push(`R${S.round} ${TN[S.active]}：${m}`);if(S.log.length>3000)S.log.shift();
+  const now=Date.now();if(!S.t0)S.t0=now;
+  const inPlay=S.phase==='play'||S.phase==='over';
+  const a=d.a||null,t=d.t||null;
+  S.ev.push({seq:S.ev.length+1,time:fmtTime(now),el:Math.round((now-S.t0)/1000),round:inPlay?S.round:0,
+    player:inPlay?TN[S.active]:TN[S.sp],step:S.phase==='play'?STEPN[S.step]:PHASEN[S.phase],type:d.type||'スキル・ウルトの効果',
+    ap:a?TN[a.team]:(d.ap||''),an:a?D(a).name:(d.an||''),ar:a?ROLE_NAME[D(a).role]:'',au:a?a.uid:'',
+    tp:t?TN[t.team]:(d.tp||''),tn:t?D(t).name:(d.tn||''),tr:t?ROLE_NAME[D(t).role]:'',tu:t?t.uid:'',
+    x:d.x??(t&&t.x!==null&&inB(t.x,t.y)?t.x:(a&&a.x!==null&&inB(a.x,a.y)?a.x:'')),
+    y:d.y??(t&&t.x!==null&&inB(t.x,t.y)?t.y:(a&&a.x!==null&&inB(a.x,a.y)?a.y:'')),
+    val:d.val??'',hp:d.hp??'',A:count(0),B:count(1),msg:m});
+}
+const STEPN=['','段階①','段階②','段階③','ターン終了待ち'];
+const PHASEN={draft:'編成',place:'配置',play:'',over:'終了'};
+function fmtTime(ms){const d=new Date(ms),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;}
+function count(t){let n=0;for(let x=1;x<=9;x++)for(let y=0;y<7;y++)if(S.owner[x][y]===t)n++;return n;}
+function perp(f){return [-f[1],f[0]];}
+function hasEnemyOnTile(c){return onBoard(c)&&charsAt(c.x,c.y).some(o=>o.team!==c.team);}
+function marked(c,byTeam){return c.marks.some(m=>m.team===byTeam);}
+function ctLeft(c){if(c.cd===null)return 0;const r=c.cd+D(c).skill.ct-S.round;return r>0?r:0;}
+function canAct(c){return S.phase==='play'&&c.team===S.active&&!c.wait&&c.stun===0;}
+
+/* ========== ダメージ・撃破 ========== */
+function damage(c,amt,kind,src,by){
+  const ty=kind==='battle'?'同マス戦闘ダメージ':kind==='skill'?'スキル・ウルトのダメージ':'通常攻撃';
+  if(!onBoard(c))return;
+  if(kind!=='battle'){
+    const b=bAt(c.x,c.y);
+    if(b&&b.type==='wall'){log(`${D(c).name}はブロック壁で攻撃を無効化`,{type:ty+'（壁で無効）',a:by,t:c,val:0,hp:c.hp});return;}
+    if(b&&b.type==='tree'){const na=Math.max(0,amt-2);log(`木で${D(c).name}へのダメージ${amt}→${na}`,{type:'木で軽減',a:by,t:c,val:amt-na});amt=na;if(!amt){log(`${D(c).name}へのダメージは0`,{type:ty,a:by,t:c,val:0,hp:c.hp,an:src});return;}}
+  }
+  let rest=amt;
+  c.temps.sort((a,b)=>a.left-b.left);
+  for(const t of c.temps){const u=Math.min(t.amt,rest);t.amt-=u;rest-=u;if(!rest)break;}
+  c.temps=c.temps.filter(t=>t.amt>0);
+  c.hp-=rest;
+  log(`${src?src+'→':''}${TN[c.team]}の${D(c).name}に${amt}ダメージ（残り${Math.max(c.hp,0)}${tempSum(c)?'＋'+tempSum(c):''}）`,{type:ty,a:by,t:c,val:amt,hp:Math.max(c.hp,0),an:by?'':src});
+  if(c.hp<=0)ko(c,by,src);
+}
+function ko(c,by,src){
+  const s=spawn(c.team);const kx=c.x,ky=c.y;
+  c.x=s.x;c.y=s.y;c.hp=D(c).hp;c.temps=[];c.stun=0;c.marks=[];c.wait=true;c.skip=1;resetFlags(c);
+  log(`${TN[c.team]}の${D(c).name}が撃破されリスポーン地点へ`,{type:'撃破',a:by,t:c,x:kx,y:ky,an:by?'':(src||''),ap:by?'':(src==='同マス戦闘'?TN[other(c.team)]:'')});
+}
+function hitBot(b,src){S.bots=S.bots.filter(x=>x!==b);log(`${src}が${TN[b.team]}の回復ボットを破壊`,{type:'ボット破壊',an:src,tp:TN[b.team],tn:'回復ボット',x:b.x,y:b.y});}
+function checkBotStep(c){
+  const b=botAt(c.x,c.y);if(b&&b.team!==c.team)hitBot(b,D(c).name);
+}
+
+/* ========== 移動 ========== */
+function canEnter(c,fx,fy,nx,ny){
+  const b=bAt(nx,ny);
+  if(b&&b.type==='hg'&&c.id!=='assassin'){
+    if(!(fx===nx+b.stair[0]&&fy===ny+b.stair[1]))return false;
+  }
+  return true;
+}
+function neighbors(c,x,y){
+  const out=[],s=spawn(c.team);
+  if(x===s.x&&y===s.y){out.push([c.team===0?1:9,3]);return out;}
+  for(const [dx,dy] of DIR4){
+    const nx=x+dx,ny=y+dy;
+    if(inB(nx,ny))out.push([nx,ny]);
+    else if(nx===s.x&&ny===s.y)out.push([nx,ny]);
+  }
+  return out;
+}
+function reach(c){
+  const mob=D(c).mob+c.mob;
+  const dist={};dist[K(c.x,c.y)]=0;const q=[[c.x,c.y]];const res=new Map();
+  while(q.length){
+    const [x,y]=q.shift();const d=dist[K(x,y)];
+    if(d>=mob)continue;
+    for(const [nx,ny] of neighbors(c,x,y)){
+      if(inB(nx,ny)&&!canEnter(c,x,y,nx,ny))continue;
+      const k=K(nx,ny);
+      if(dist[k]!==undefined)continue;
+      dist[k]=d+1;q.push([nx,ny]);
+      const b=inB(nx,ny)?bAt(nx,ny):null;
+      if(b&&b.type==='hg'&&charsAt(nx,ny).some(o=>o.team===c.team&&o!==c))continue;
+      res.set(k,{x:nx,y:ny});
+    }
+  }
+  return res;
+}
+function doMove(c,x,y){
+  const fx=c.x,fy=c.y;c.x=x;c.y=y;c.moved=true;
+  log(`${D(c).name}が(${x},${y})へ移動`,{type:'移動',a:c,x:atSpawn(c)?'リスポーン':x,y:atSpawn(c)?'':y,val:man(fx,fy,x,y)});
+  if(atSpawn(c)){c.hp=D(c).hp;c.swapOk=true;log(`${D(c).name}がリスポーン地点で全回復`,{type:'リスポーンで回復',a:c,x:'リスポーン',y:''});}
+  else checkBotStep(c);
+}
+
+/* ========== 射程 ========== */
+function lineTiles(c,n){const f=c.face,out=[];for(let k=1;k<=n;k++){const x=c.x+f[0]*k,y=c.y+f[1]*k;if(inB(x,y))out.push([x,y]);}return out;}
+function atkTiles(c){
+  if(c.snipe){const f=c.face,p=perp(f),out=[];
+    for(const l of [-1,0,1])for(let k=1;k<=4;k++){const x=c.x+f[0]*k+p[0]*l,y=c.y+f[1]*k+p[1]*l;if(inB(x,y))out.push([x,y]);}
+    return out;}
+  return lineTiles(c,D(c).rng);
+}
+function healTiles(c){
+  const f=c.face,p=perp(f);
+  const out=lineTiles(c,D(c).hrng);
+  for(const s of [1,-1]){const x=c.x+f[0]+p[0]*s,y=c.y+f[1]+p[1]*s;if(inB(x,y))out.push([x,y]);}
+  return out;
+}
+function isBehind(a,t){return (a.x-t.x)*t.face[0]+(a.y-t.y)*t.face[1]<0;}
+function atkPower(c,t){
+  let p=D(c).atk;
+  const b=bAt(c.x,c.y);
+  if(b&&b.type==='hg')p+=2;
+  if(c.focus)p+=2;
+  if(b&&b.type==='wall')p=Math.max(1,p-2);
+  if(t&&c.back&&isBehind(c,t))p+=2;
+  if(t&&marked(t,c.team))p+=1;
+  return p;
+}
+function battlePower(c){
+  if(c.stun>0)return 0;
+  let p=D(c).atk;
+  if(D(c).role==='T')p+=2;
+  if(D(c).role==='S'&&D(c).atk>=2)p-=1;
+  if(c.focus)p+=2;
+  return p;
+}
+
+/* ========== 押し出し・占領 ========== */
+function push(e,dir,n){
+  for(let i=0;i<n;i++){
+    const nx=e.x+dir[0],ny=e.y+dir[1];
+    if(!inB(nx,ny))break;
+    if(bAt(nx,ny))break;
+    e.x=nx;e.y=ny;
+  }
+  log(`${TN[e.team]}の${D(e).name}が(${e.x},${e.y})へ押し出された`,{type:'押し出し',t:e});
+  checkBotStep(e);
+}
+function addOcc(t,x,y,n){
+  if(S.owner[x][y]===t){ if(S.occ[x][y]&&S.occ[x][y].team!==t)S.occ[x][y]=null; return;}
+  const o=S.occ[x][y];
+  let lv=(o&&o.team===t)?o.lv:0;
+  lv+=n;
+  if(lv>=2){const was=S.owner[x][y];S.owner[x][y]=t;S.occ[x][y]=null;log(`(${x},${y})が${TN[t]}の領土になった`,{type:was===null?'領土化（中立から）':'領土化（相手から）',ap:TN[t],x,y});}
+  else{S.occ[x][y]={team:t,lv};log(`(${x},${y})の占領度が${TN[t]}の${lv}になった`,{type:'占領度＋1',ap:TN[t],x,y,val:lv});}
+}
+function lockedFor(t,x,y){return S.lock[x][y].some(l=>l.team!==t);}
+
+/* ========== スナップショット ========== */
+function snap(){UNDO.push(JSON.stringify(S));if(UNDO.length>60)UNDO.shift();}
+function undo(){if(!UNDO.length)return;S=JSON.parse(UNDO.pop());UI.mode=null;render();}
+
+/* ========== 操作：選択とモード ========== */
+function setMode(kind,targets,extra){UI.mode=Object.assign({kind,targets},extra||{});render();}
+function cancelMode(){UI.mode=null;render();}
+function tset(list){const m=new Map();for(const [x,y,v] of list)m.set(K(x,y),v===undefined?{x,y}:v);return m;}
+
+function selectAt(x,y){
+  const here=charsAt(x,y);
+  const vis=here.filter(c=>visible(c));
+  if(!vis.length){UI.sel=null;render();return;}
+  const mine=vis.filter(c=>c.team===(S.phase==='play'?S.active:S.sp));
+  const list=mine.length?[...mine,...vis.filter(c=>!mine.includes(c))]:vis;
+  const i=list.findIndex(c=>c.uid===UI.sel);
+  UI.sel=list[(i+1)%list.length].uid;render();
+}
+function visible(c){
+  if(S.phase==='place'&&c.team!==S.sp)return false;
+  return true;
+}
+
+function cellClick(x,y){
+  if(UI.ov)return;
+  const k=K(x,y);
+  if(UI.mode){
+    const m=UI.mode;
+    if(m.targets&&m.targets.has(k)){m.act(m.targets.get(k),x,y);return;}
+    if(m.kind==='multi'){return;}
+    UI.mode=null;
+  }
+  if(S.phase==='place'){placeClick(x,y);return;}
+  selectAt(x,y);
+}
+
+/* ========== 行動 ========== */
+function startMove(c){
+  const r=reach(c);
+  setMode('move',r,{hint:'移動先をタップ',act:(v)=>{snap();doMove(c,v.x,v.y);UI.mode=null;render();}});
+}
+function setFace(c,f){
+  if(S.phase==='play'){
+    if(!canAct(c)||c.acted||c.faces>=3||(c.face[0]===f[0]&&c.face[1]===f[1]))return;
+    snap();c.faces++;
+  }
+  c.face=f;if(S.phase==='play')log(`${D(c).name}が${ARW[f.join(',')]}を向いた`,{type:'向き変更',a:c,val:c.faces});UI.mode=null;render();
+}
+function startAttack(c){
+  if(c.inBattle||hasEnemyOnTile(c)){toast('同マス戦闘になるキャラは通常攻撃できません（段階③で戦闘）');return;}
+  const list=[];
+  for(const [x,y] of atkTiles(c)){
+    const es=charsAt(x,y).filter(o=>o.team!==c.team);const bt=botAt(x,y);
+    if(es.length||(bt&&bt.team!==c.team))list.push([x,y]);
+  }
+  if(!list.length){toast('射程内に攻撃できる敵がいません');return;}
+  setMode('attack',tset(list),{hint:'攻撃するマスをタップ',act:async(v)=>{
+    const es=charsAt(v.x,v.y).filter(o=>o.team!==c.team);const bt=botAt(v.x,v.y);
+    const opts=es.map(e=>({label:`${D(e).name}（耐久${e.hp}${tempSum(e)?'＋'+tempSum(e):''}）`,value:e.uid}));
+    if(bt&&bt.team!==c.team)opts.push({label:'回復ボット',value:'bot'});
+    let pick=opts.length===1?opts[0].value:await choose('攻撃対象を選ぶ',opts,true);
+    if(pick===null){render();return;}
+    snap();
+    if(pick==='bot'){hitBot(bt,D(c).name);}
+    else{const t=S.chars[pick];damage(t,atkPower(c,t),'normal',D(c).name,c);}
+    c.acted=true;UI.mode=null;render();checkWinNow();
+  }});
+}
+function startHeal(c){
+  const tiles=(c.inBattle||hasEnemyOnTile(c))?[]:healTiles(c);
+  const list=[];
+  const bp=battlePending();
+  const ok=(o)=>o.team===c.team&&o!==c&&(bp||o.hp<D(o).hp);
+  const add=(x,y)=>{if(charsAt(x,y).some(ok))list.push([x,y]);};
+  add(c.x,c.y);for(const [x,y] of tiles)add(x,y);
+  if(!list.length){toast('回復射程内に回復できる味方がいません');return;}
+  setMode('heal',tset(list),{hint:'回復するマスをタップ',act:async(v)=>{
+    const al=charsAt(v.x,v.y).filter(ok);
+    let pick=al.length===1?al[0].uid:await choose('回復する味方',al.map(a=>({label:`${D(a).name}（${a.hp}/${D(a).hp}）`,value:a.uid})),true);
+    if(pick===null){render();return;}
+    let when='now';
+    if(bp){const tg=S.chars[pick];const o=[];if(tg.hp<D(tg).hp)o.push({label:'同マス戦闘の前に回復',value:'now'});o.push({label:'同マス戦闘の後に回復',value:'after'});
+      when=await choose('回復のタイミング',o,true);if(when===null){render();return;}}
+    snap();const a=S.chars[pick];
+    let amt=D(c).heal;const b=bAt(c.x,c.y);if(b&&b.type==='hg')amt+=2;
+    if(when==='after'){S.heals.push({h:c.uid,t:a.uid,amt});log(`${D(c).name}が${D(a).name}の回復を同マス戦闘の後に予約`,{type:'回復予約',a:c,t:a,val:amt});}
+    else{const before=a.hp;a.hp=Math.min(D(a).hp,a.hp+amt);log(`${D(c).name}が${D(a).name}を${a.hp-before}回復`,{type:'回復',a:c,t:a,val:a.hp-before,hp:a.hp});}
+    c.acted=true;UI.mode=null;render();
+  }});
+}
+function battlePending(){return activeChars(S.active).some(c=>hasEnemyOnTile(c));}
+function finishSkill(c,isUlt){log(`${D(c).name}が${isUlt?'ウルト':'スキル'}「${isUlt?D(c).ult.name:D(c).skill.name}」を使用`,{type:isUlt?'ウルト使用':'スキル使用',a:c,tn:isUlt?D(c).ult.name:D(c).skill.name});if(isUlt){c.ult=true;c.ultT=true;}else{c.cd=S.round;c.skillT=true;}UI.mode=null;}
+
+function alliesWithin(c,r,self){return activeChars(c.team).filter(o=>onBoard(o)&&(self||o!==c)&&man(o.x,o.y,c.x,c.y)<=r);}
+function enemiesWithin(c,r){return activeChars(other(c.team)).filter(o=>onBoard(o)&&man(o.x,o.y,c.x,c.y)<=r);}
+function tilesWithin(c,r){const o=[];for(let x=1;x<=9;x++)for(let y=0;y<7;y++)if(man(x,y,c.x,c.y)<=r)o.push([x,y]);return o;}
+async function pickCharOnTile(list,title){
+  if(list.length===1)return list[0];
+  const v=await choose(title,list.map(a=>({label:`${TN[a.team]}の${D(a).name}`,value:a.uid})),true);
+  return v===null?null:S.chars[v];
+}
+
+function useSkill(c){
+  if(c.skillT||ctLeft(c)||!canAct(c)){toast('このスキルはまだ使えません');return;}
+  const id=c.id;
+  if(id==='guardian'){
+    const al=alliesWithin(c,2,true);
+    setMode('skill',tset(al.map(a=>[a.x,a.y])),{hint:'耐久＋3を与える味方のマスをタップ',act:async(v)=>{
+      const a=await pickCharOnTile(al.filter(o=>o.x===v.x&&o.y===v.y),'対象の味方');if(!a){render();return;}
+      snap();a.temps.push({amt:3,left:2});log(`防衛指令：${D(a).name}に耐久＋3`);finishSkill(c,false);render();}});
+  }else if(id==='charger'){chargeMode(c,3,1,false);}
+  else if(id==='sniper'){
+    if(c.moved){toast('狙撃体勢は、このターン移動していないときだけ使えます');return;}
+    snap();c.snipe=true;log('スナイパーが狙撃体勢');finishSkill(c,false);render();
+  }else if(id==='assassin'){snap();c.back=true;log('アサシンが背面攻撃を準備');finishSkill(c,false);render();}
+  else if(id==='bomber'){snap();c.focus=true;log('ボンバーが集中砲火（攻撃力＋2）');finishSkill(c,false);render();}
+  else if(id==='healer'){
+    const list=tilesWithin(c,2).filter(([x,y])=>S.owner[x][y]===c.team&&!botAt(x,y));
+    setMode('skill',tset(list),{hint:'回復ボットを置く自領土のマスをタップ',act:(v)=>{
+      snap();S.bots.push({id:++S.botId,team:c.team,x:v.x,y:v.y,left:3});log(`回復ボットを(${v.x},${v.y})に設置`);finishSkill(c,false);render();}});
+  }else if(id==='booster'){
+    snap();const al=alliesWithin(c,2,true);al.forEach(a=>{a.mob+=2;});
+    log(`加速：${al.map(a=>D(a).name).join('、')}の機動力＋2`);finishSkill(c,false);render();
+  }else if(id==='lockdown'){
+    const es=enemiesWithin(c,3);
+    if(!es.length){toast('3マス以内に敵がいません');return;}
+    setMode('skill',tset(es.map(e=>[e.x,e.y])),{hint:'マークする敵のマスをタップ',act:async(v)=>{
+      const e=await pickCharOnTile(es.filter(o=>o.x===v.x&&o.y===v.y),'マークする敵');if(!e){render();return;}
+      snap();e.marks.push({team:c.team,left:2});log(`マーキング：${D(e).name}`);finishSkill(c,false);render();}});
+  }
+}
+function useUlt(c){
+  if(c.ult||!canAct(c)){toast('ウルトは使用済みです');return;}
+  const id=c.id;
+  if(id==='guardian'){
+    snap();
+    const es=activeChars(other(c.team)).filter(e=>onBoard(e)&&Math.abs(e.x-c.x)<=1&&Math.abs(e.y-c.y)<=1);
+    es.forEach(e=>{e.stun=1;});log(`威圧：${es.length?es.map(e=>D(e).name).join('、')+'を行動不能に':'対象なし'}`);
+    finishSkill(c,true);render();
+  }else if(id==='charger'){chargeMode(c,5,2,true);}
+  else if(id==='sniper'){
+    snap();log('貫通弾！');
+    const f=c.face;let x=c.x+f[0],y=c.y+f[1];
+    while(inB(x,y)){
+      charsAt(x,y).filter(o=>o.team!==c.team).forEach(e=>damage(e,5,'skill','貫通弾',c));
+      const b=botAt(x,y);if(b&&b.team!==c.team)hitBot(b,'貫通弾');
+      x+=f[0];y+=f[1];
+    }
+    finishSkill(c,true);render();
+  }else if(id==='assassin'){
+    const list=[];
+    for(const e of activeChars(other(c.team))){if(!onBoard(e))continue;const bx=e.x-e.face[0],by=e.y-e.face[1];if(inB(bx,by))list.push([e.x,e.y]);}
+    if(!list.length){toast('背後に回り込める敵がいません');return;}
+    setMode('ult',tset(list),{hint:'背後に回り込む敵のマスをタップ',act:async(v)=>{
+      const cand=charsAt(v.x,v.y).filter(o=>o.team!==c.team&&inB(o.x-o.face[0],o.y-o.face[1]));
+      const e=await pickCharOnTile(cand,'回り込む敵');if(!e){render();return;}
+      snap();c.x=e.x-e.face[0];c.y=e.y-e.face[1];c.face=[...e.face];
+      log(`急襲：${D(e).name}の背後(${c.x},${c.y})へ`);checkBotStep(c);finishSkill(c,true);render();}});
+  }else if(id==='bomber'){
+    setMode('ult',tset(tilesWithin(c,3)),{hint:'重力弾を撃ち込むマスをタップ',act:(v)=>{
+      snap();log(`重力弾：(${v.x},${v.y})`);
+      activeChars(other(c.team)).forEach(e=>{if(onBoard(e)&&Math.abs(e.x-v.x)<=1&&Math.abs(e.y-v.y)<=1&&!(e.x===v.x&&e.y===v.y)){e.x=v.x;e.y=v.y;log(`${D(e).name}が引き寄せられた`);}});
+      charsAt(v.x,v.y).filter(o=>o.team!==c.team).forEach(e=>damage(e,3,'skill','重力弾',c));
+      const b=botAt(v.x,v.y);if(b&&b.team!==c.team)hitBot(b,'重力弾');
+      finishSkill(c,true);render();}});
+  }else if(id==='healer'){
+    snap();const al=alliesWithin(c,2,true);al.forEach(a=>a.temps.push({amt:5,left:1}));
+    log(`守護の光：${al.map(a=>D(a).name).join('、')}に耐久＋5`);finishSkill(c,true);render();
+  }else if(id==='booster'){
+    const list=tilesWithin(c,3).filter(([x,y])=>S.owner[x][y]!==c.team&&!S.occ[x][y]&&!charsAt(x,y).some(o=>o.team!==c.team));
+    if(!list.length){toast('対象にできるマスがありません');return;}
+    multiMode(c,list.map(([x,y])=>[x,y,K(x,y)]),3,'占領度＋1にするマスをタップ（最大3つ）',(keys)=>{
+      for(const k of keys){const [x,y]=k.split(',').map(Number);S.occ[x][y]={team:c.team,lv:1};}
+      log(`陣地拡張：${keys.length}マスに占領度＋1`);finishSkill(c,true);},false);
+  }else if(id==='lockdown'){
+    setMode('ult',tset(tilesWithin(c,3)),{hint:'占領封鎖の中心マスをタップ（3×3）',act:(v)=>{
+      snap();for(let x=v.x-1;x<=v.x+1;x++)for(let y=v.y-1;y<=v.y+1;y++)if(inB(x,y))S.lock[x][y].push({team:c.team,left:2});
+      log(`占領封鎖：(${v.x},${v.y})周辺`);finishSkill(c,true);render();}});
+  }
+}
+function chargeMode(c,maxD,pushN,isUlt){
+  const f=c.face,list=[];let contact=null;
+  for(let k=1;k<=maxD;k++){
+    const x=c.x+f[0]*k,y=c.y+f[1]*k;
+    if(!inB(x,y))break;
+    const b=bAt(x,y);if(b&&b.type==='hg')break;
+    if(charsAt(x,y).some(o=>o.team!==c.team)){contact=[x,y];break;}
+    list.push([x,y,{x,y,contact:false}]);
+  }
+  if(contact)list.push([contact[0],contact[1],{x:contact[0],y:contact[1],contact:true}]);
+  if(!list.length){toast('前方に進めません（向きを確認してください）');return;}
+  setMode(isUlt?'ult':'skill',tset(list),{hint:contact?'止まるマス、または敵のマス（接触して押し出す）をタップ':'止まるマスをタップ',act:(v)=>{
+    snap();
+    if(v.contact){
+      c.x=v.x-f[0];c.y=v.y-f[1];
+      const es=charsAt(v.x,v.y).filter(o=>o.team!==c.team);
+      log(`${isUlt?'フルチャージ':'突進'}：敵に接触`);
+      es.forEach(e=>push(e,f,pushN));
+    }else{c.x=v.x;c.y=v.y;log(`${isUlt?'フルチャージ':'突進'}：(${c.x},${c.y})へ`);}
+    checkBotStep(c);
+    if(!isUlt){c.temps.push({amt:3,left:1});}
+    else if(S.owner[c.x][c.y]===other(c.team)){addOcc(c.team,c.x,c.y,1);}
+    finishSkill(c,isUlt);render();checkWinNow();
+  }});
+}
+function multiMode(c,list,max,hint,apply,byChar){
+  const m=new Map();for(const [x,y,v] of list){const k=K(x,y);if(!m.has(k))m.set(k,[]);m.get(k).push(v);}
+  UI.mode={kind:'multi',targets:m,chosen:[],max,hint,
+    act:async(vals)=>{
+      let v=vals[0];
+      if(byChar&&vals.length>1){v=await choose('対象の味方',vals.map(u=>({label:D(S.chars[u]).name,value:u})),true);if(v===null){render();return;}}
+      const md=UI.mode;const i=md.chosen.indexOf(v);
+      if(i>=0)md.chosen.splice(i,1);else if(md.chosen.length<max)md.chosen.push(v);
+      render();},
+    confirm:()=>{const md=UI.mode;if(!md.chosen.length)return;snap();apply(md.chosen);UI.mode=null;render();}};
+  render();
+}
+function swapChar(c,nu){
+  snap();
+  const n=S.chars[nu],t=c.team,i=S.roster[t].indexOf(c.uid);
+  S.roster[t][i]=nu;S.bench[t][S.bench[t].indexOf(nu)]=c.uid;
+  n.x=c.x;n.y=c.y;n.face=[...c.face];n.hp=D(n).hp;n.temps=[];n.stun=0;n.marks=[];n.wait=false;resetFlags(n);n.moved=c.moved;
+  c.x=null;c.y=null;resetFlags(c);
+  log(`${D(c).name}を${D(n).name}に交代`,{type:'交代',a:c,t:n,x:'リスポーン',y:''});UI.sel=nu;render();
+}
+
+/* ========== 段階・ターン ========== */
+function nextStep(){
+  if(S.step===1){snap();S.step=2;UI.mode=null;activeChars(S.active).forEach(c=>{c.inBattle=hasEnemyOnTile(c);});log('段階②へ',{type:'段階②へ'});render();}
+  else if(S.step===2){UI.mode=null;resolveBattles();}
+}
+async function resolveBattles(){
+  UNDO=[];S.step=3;render();
+  const t=S.active,o=other(t);const seen=new Set();
+  for(const c of activeChars(t)){
+    if(!onBoard(c))continue;const k=K(c.x,c.y);if(seen.has(k))continue;seen.add(k);
+    const here=charsAt(c.x,c.y);const mine=here.filter(a=>a.team===t),their=here.filter(a=>a.team===o);
+    if(!their.length)continue;
+    let pm=mine.reduce((s,a)=>s+battlePower(a),0),pt=their.reduce((s,a)=>s+battlePower(a),0);
+    const mb=(team,foes)=>foes.some(e=>marked(e,team.length?team[0].team:null))?team.filter(a=>a.stun===0).length:0;
+    const bm=mb(mine,their),bt=mb(their,mine);
+    if(bm){pm+=bm;log(`マーキングにより${TN[t]}の攻撃力＋${bm}`);}
+    if(bt){pt+=bt;log(`マーキングにより${TN[o]}の攻撃力＋${bt}`);}
+    log(`同マス戦闘(${c.x},${c.y})：${TN[t]}攻撃力${pm} 対 ${TN[o]}攻撃力${pt}`,{type:'同マス戦闘',ap:TN[t],an:mine.map(a=>D(a).name).join('・'),tp:TN[o],tn:their.map(a=>D(a).name).join('・'),x:c.x,y:c.y,val:pm,hp:pt});
+    const planT=await allocate(their,pm,t),planM=await allocate(mine,pt,o);
+    for(const [a,d] of [...planT,...planM])if(d>0)damage(a,d,'battle','同マス戦闘');
+    log(`同マス戦闘(${c.x},${c.y})の結果：${TN[t]}残り${mine.filter(onBoard).length}体・${TN[o]}残り${their.filter(onBoard).length}体`,{type:'同マス戦闘の結果',ap:TN[t],tp:TN[o],x:c.x,y:c.y,val:mine.filter(a=>a.x===c.x&&a.y===c.y).length,hp:their.filter(a=>a.x===c.x&&a.y===c.y).length});
+    render();
+  }
+  for(const hq of S.heals){
+    const h=S.chars[hq.h],a=S.chars[hq.t];
+    if(!onBoard(h)||!onBoard(a)){log(`${D(h).name}の戦闘後の回復は、撃破により取り消し`,{type:'回復取り消し',a:h,t:a});continue;}
+    const before=a.hp;a.hp=Math.min(D(a).hp,a.hp+hq.amt);log(`戦闘後：${D(h).name}が${D(a).name}を${a.hp-before}回復`,{type:'回復',a:h,t:a,val:a.hp-before,hp:a.hp});
+  }
+  S.heals=[];
+  S.step=4;render();checkWinNow();
+}
+async function allocate(defs,dmg,chooser){
+  const plan=[];let rest=dmg;
+  const groups={T:[],S:[],D:[]};defs.forEach(d=>groups[D(d).role].push(d));
+  for(const r of ['T','S','D']){
+    let g=groups[r];
+    if(g.length>1&&rest>0&&rest<g.reduce((s,a)=>s+effHp(a),0)){
+      const first=await choose(`${TN[chooser]}の選択：同マス戦闘で先にダメージを与える${ROLE_NAME[r]}は？`,g.map(a=>({label:`${D(a).name}（耐久${effHp(a)}）`,value:a.uid})),false);
+      g=[S.chars[first],...g.filter(a=>a.uid!==first)];
+    }
+    for(const a of g){const u=Math.min(rest,effHp(a));plan.push([a,u]);rest-=u;}
+  }
+  return plan;
+}
+function endTurn(){
+  const t=S.active,o=other(t);
+  // 占領度更新
+  for(let x=1;x<=9;x++)for(let y=0;y<7;y++){
+    const here=charsAt(x,y);const m=here.filter(c=>c.team===t).length;
+    if(!m||here.some(c=>c.team===o))continue;
+    if(lockedFor(t,x,y))continue;
+    addOcc(t,x,y,Math.min(m,2));
+  }
+  // 回復ボット
+  S.bots.filter(b=>b.team===t).forEach(b=>{
+    activeChars(t).forEach(a=>{if(onBoard(a)&&Math.abs(a.x-b.x)<=1&&Math.abs(a.y-b.y)<=1&&a.hp<D(a).hp){const h=Math.min(2,D(a).hp-a.hp);a.hp+=h;log(`回復ボットが${D(a).name}を${h}回復`,{type:'ボット回復',an:'回復ボット',ap:TN[t],t:a,val:h,hp:a.hp});}});
+    b.left--;});
+  S.bots=S.bots.filter(b=>b.left>0);
+  // 効果の期限
+  for(const u in S.chars){const c=S.chars[u];
+    if(c.team===o){c.temps.forEach(x=>x.left--);c.temps=c.temps.filter(x=>x.left>0);}
+    if(c.team===t&&c.stun>0)c.stun--;
+    c.marks.forEach(m=>{if(m.team===t)m.left--;});c.marks=c.marks.filter(m=>m.left>0);
+  }
+  for(let x=1;x<=9;x++)for(let y=0;y<7;y++){S.lock[x][y].forEach(l=>{if(l.team!==t)l.left--;});S.lock[x][y]=S.lock[x][y].filter(l=>l.left>0);}
+  log(`ターン終了（A ${count(0)}マス／B ${count(1)}マス）`,{type:'ターン終了',val:Math.round((Date.now()-S.turnT0)/1000)});
+  if(count(t)>=WIN){finish(t,`${TN[t]}が${WIN}マスに到達`);return;}
+  if(t!==S.first){
+    if(S.round>=MAXR){const a=count(0),b=count(1);finish(a>b?0:b>a?1:null,`${MAXR}ターン終了（A ${a}マス／B ${b}マス）`);return;}
+    S.round++;
+  }
+  S.active=o;startTurn();
+  UI.sel=null;UI.mode=null;UNDO=[];
+  showPass(`${TN[o]}のターン`,`ラウンド${S.round}。${TN[o]}に端末を渡してください。`,'始める',()=>render());
+}
+function startTurn(){
+  S.step=1;
+  S.heals=[];
+  activeChars(S.active).forEach(c=>{if(c.wait){if(c.skip>0)c.skip--;else c.wait=false;}resetFlags(c);if(atSpawn(c)&&!c.wait)c.swapOk=true;});
+  activeChars(other(S.active)).forEach(c=>{c.mob=0;c.focus=false;c.back=false;c.snipe=false;});
+  S.turnT0=Date.now();log('ターン開始',{type:'ターン開始'});
+}
+function checkWinNow(){
+  for(const t of [0,1])if(S.phase==='play'&&count(t)>=WIN){finish(t,`${TN[t]}が${WIN}マスに到達`);return true;}
+  return false;
+}
+function finish(w,why){
+  S.phase='over';S.winner=w;UI.mode=null;log(`ゲーム終了：${why}`,{type:'ゲーム終了',ap:w===null?'引き分け':TN[w]+'の勝利',val:S.round});
+  showOv({title:w===null?'引き分け':`${TN[w]}の勝利！`,body:why+'<br>テストプレイの記録をCSVで保存できます。盤面の下のボタンからも、あとで保存できます。',opts:[{label:'行動ログをCSVで保存',primary:true,fn:()=>{dlLog();render();}},{label:'キャラ別集計をCSVで保存',fn:()=>{dlSummary();render();}},{label:'盤面を見る',fn:()=>render()}]});
+}
+
+/* ========== セットアップ ========== */
+function draftToggle(role,id){
+  const p=UI.pick[role];const i=p.indexOf(id);
+  if(i>=0)p.splice(i,1);else{if(p.length>=PICK[role])p.shift();p.push(id);}
+  render();
+}
+function draftDone(){
+  const t=S.sp;
+  for(const r of ['T','D','S'])if(UI.pick[r].length!==PICK[r])return;
+  if(!S.gid){S.gid=fmtTime(Date.now()).replace(/[-: ]/g,'').slice(0,12);S.t0=Date.now();}
+  S.roster[t]=[...UI.pick.T,...UI.pick.D,...UI.pick.S].map(id=>t+'-'+id);
+  S.roster[t].forEach(u=>log(`${TN[t]}が${D(S.chars[u]).name}を編成`,{type:'編成',a:S.chars[u]}));
+  S.bench[t]=Object.keys(DEFS).filter(id=>!S.roster[t].includes(t+'-'+id)).map(id=>t+'-'+id);
+  UI.pick={T:[],D:[],S:[]};
+  if(t===0){S.sp=1;showPass('プレイヤーBの編成','Bに端末を渡してください。','編成する',()=>render());}
+  else{S.phase='place';S.sp=0;S.placeStep='bld';showPass('プレイヤーAの配置','Aに端末を渡してください。Bの配置は見えません。','配置する',()=>render());}
+}
+function placeClick(x,y){
+  const t=S.sp;
+  if(S.placeStep==='bld'){
+    if(!inB(x,y)||S.owner[x][y]!==t)return;
+    const k=K(x,y);
+    if(S.bld[k]){delete S.bld[k];render();return;}
+    if(Object.values(S.bld).filter(b=>b.team===t).length>=3){toast('建物は3つまでです。置いた建物をタップすると外せます');return;}
+    S.bld[k]={type:UI.bType,stair:[...UI.stair],team:t};render();
+  }else{
+    const c=UI.sel&&S.chars[UI.sel];
+    if(inB(x,y)&&startCol(t,x)&&c&&c.team===t){
+      const b=bAt(x,y);
+      if(b&&b.type==='hg'&&charsAt(x,y).some(o=>o.team===t&&o!==c)){toast('高台には同じプレイヤーのキャラは1体までです');return;}
+      c.x=x;c.y=y;
+      const nxt=activeChars(t).find(o=>o.x===null);UI.sel=nxt?nxt.uid:c.uid;render();return;
+    }
+    if(c&&c.team===t&&inB(x,y)&&!charsAt(x,y).length){toast('キャラはリスポーン側から2列目までのマスに置けます');return;}
+    selectAt(x,y);
+  }
+}
+function startCol(t,x){return t===0?(x===1||x===2):(x===8||x===9);}
+function placeDone(){
+  const t=S.sp;
+  if(S.placeStep==='bld'){
+    if(Object.values(S.bld).filter(b=>b.team===t).length!==3){toast('建物を3つ置いてください');return;}
+    S.placeStep='chr';UI.sel=activeChars(t)[0].uid;render();return;
+  }
+  if(activeChars(t).some(c=>c.x===null)){toast('5体すべてを配置してください');return;}
+  UI.sel=null;
+  if(t===0){S.sp=1;S.placeStep='bld';showPass('プレイヤーBの配置','Bに端末を渡してください。Aの配置は見えません。','配置する',()=>render());}
+  else{
+    S.phase='play';
+    showOv({title:'建物を公開して開始',body:'両者の配置が公開されます。先手を決めてください（じゃんけんなど）。',opts:[
+      {label:'Aが先手',fn:()=>begin(0)},{label:'Bが先手',fn:()=>begin(1)}]});
+  }
+}
+function begin(f){S.first=f;S.active=f;S.round=1;startTurn();UNDO=[];log(`${TN[f]}が先手でゲーム開始`,{type:'ゲーム開始',ap:TN[f]});
+  for(const t of [0,1]){activeChars(t).forEach(c=>log(`${TN[t]}の${D(c).name}を(${c.x},${c.y})に配置`,{type:'初期配置',a:c,tn:ARW[c.face.join(',')]}));}
+  for(const k in S.bld){const b=S.bld[k];log(`${TN[b.team]}が${BLD[b.type].n}を(${k})に配置`,{type:'建物配置',ap:TN[b.team],an:BLD[b.type].n,x:+k.split(',')[0],y:+k.split(',')[1]});}showPass(`${TN[f]}のターン`,`ラウンド1。${TN[f]}から始めます。`,'始める',()=>render());}
+
+/* ========== オーバーレイ ========== */
+function showOv(o){UI.ov=o;renderOv();}
+function closeOv(){UI.ov=null;renderOv();}
+function showPass(title,body,btn,fn){showOv({title,body,opts:[{label:btn,fn,primary:true}]});}
+function choose(title,opts,cancel){
+  return new Promise(res=>{
+    const o=opts.map(x=>({label:x.label,fn:()=>res(x.value)}));
+    if(cancel)o.push({label:'やめる',fn:()=>res(null)});
+    showOv({title,opts:o});
+  });
+}
+let toastT;
+function toast(m){UI.toast=m;render();clearTimeout(toastT);toastT=setTimeout(()=>{UI.toast=null;render();},3200);}
+function renderOv(){
+  const el=document.getElementById('ov');
+  if(!UI.ov){el.innerHTML='';return;}
+  const o=UI.ov;
+  el.innerHTML=`<div class="overlay" role="dialog" aria-modal="true"><div class="box"><h2>${o.title}</h2>${o.body?`<p>${o.body}</p>`:''}<div class="opts">${o.opts.map((x,i)=>`<button data-i="${i}" class="${x.primary?'primary':''}">${x.label}</button>`).join('')}</div></div></div>`;
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{const f=o.opts[+b.dataset.i].fn;UI.ov=null;renderOv();f&&f();});
+  const first=el.querySelector('button');first&&first.focus();
+}
+
+/* ========== 記録（CSV）・途中保存 ========== */
+const VER='v1.0';
+const SAVE_KEY='noaim_save_v1';
+function csvCell(v){v=v===null||v===undefined?'':String(v);return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function toCSV(rows){return '﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';}
+async function download(name,text){
+  if(typeof window!=='undefined'&&window.claude&&typeof window.claude.use==='function'){
+    const dl=await window.claude.use('downloads');
+    if(!dl){toast('この画面では保存できません。GitHub版で保存してください');return;}
+    try{await dl.save({filename:name,data:text});toast(`${name} を保存しました`);}
+    catch(e){if(e&&e.code!=='declined')toast('保存できませんでした');}
+    return;
+  }
+  try{
+    const blob=new Blob([text],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');
+    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    toast(`${name} を保存しました`);
+  }catch(e){toast('保存できませんでした。別のブラウザで試してください');}
+}
+function fileStamp(){return S.gid||fmtTime(Date.now()).replace(/[-: ]/g,'').slice(0,12);}
+function logRows(){
+  const head=['試合ID','連番','時刻','経過秒','ラウンド','手番','段階','種類','行動側','行動キャラ','行動キャラの役割','対象側','対象キャラ','対象キャラの役割','X','Y','数値','対象の残り耐久','A領土','B領土','内容'];
+  return [head,...S.ev.map(e=>[S.gid,e.seq,e.time,e.el,e.round,e.player,e.step,e.type,e.ap,e.an,e.ar,e.tp,e.tn,e.tr,e.x,e.y,e.val,e.hp,e.A,e.B,e.msg])];
+}
+function dlLog(){download(`noaim_log_${fileStamp()}.csv`,toCSV(logRows()));}
+function summaryRows(){
+  const st={};
+  const get=u=>st[u]||(st[u]={dealt:0,taken:0,kills:0,deaths:0,heal:0,healed:0,moves:0,dist:0,skill:0,ult:0,faces:0,battle:0,turns:0});
+  for(const t of [0,1])for(const id in DEFS)get(t+'-'+id);
+  for(const e of S.ev){
+    const A=e.au?get(e.au):null,T=e.tu?get(e.tu):null;
+    if(['通常攻撃','スキル・ウルトのダメージ','同マス戦闘ダメージ'].includes(e.type)){if(A)A.dealt+=+e.val||0;if(T)T.taken+=+e.val||0;if(e.type==='同マス戦闘ダメージ'&&T)T.battle+=1;}
+    else if(e.type==='撃破'){if(A)A.kills++;if(T)T.deaths++;}
+    else if(e.type==='回復'||e.type==='ボット回復'){if(A)A.heal+=+e.val||0;if(T)T.healed+=+e.val||0;}
+    else if(e.type==='移動'){if(A){A.moves++;A.dist+=+e.val||0;}}
+    else if(e.type==='スキル使用'){if(A)A.skill++;}
+    else if(e.type==='ウルト使用'){if(A)A.ult++;}
+    else if(e.type==='向き変更'){if(A)A.faces++;}
+  }
+  const head=['試合ID','プレイヤー','キャラ','役割','編成','最後に場にいた','与ダメージ','被ダメージ','撃破した数','撃破された数','回復した量','回復された量','移動回数','移動マス数','スキル使用','ウルト使用','向き変更','同マス戦闘で受けた攻撃'];
+  const rows=[head];
+  for(const t of [0,1])for(const id in DEFS){
+    const u=t+'-'+id,c=S.chars[u],x=st[u];
+    const picked=S.ev.some(e=>e.type==='編成'&&e.au===u)||S.ev.some(e=>e.type==='交代'&&e.tu===u);
+    rows.push([S.gid,TN[t],DEFS[id].name,ROLE_NAME[DEFS[id].role],picked?'出場':'控えのみ',S.roster[t].includes(u)?'はい':'いいえ',x.dealt,x.taken,x.kills,x.deaths,x.heal,x.healed,x.moves,x.dist,x.skill,x.ult,x.faces,x.battle]);
+  }
+  rows.push([]);
+  const winner=S.phase==='over'?(S.winner===null?'引き分け':TN[S.winner]+'の勝利'):'試合中';
+  const kills=t=>S.ev.filter(e=>e.type==='撃破'&&e.tp===TN[other(t)]).length;
+  rows.push(['試合ID','結果','最終ラウンド','A領土','B領土','Aが撃破した数','Bが撃破した数','先手','試合時間（分）']);
+  rows.push([S.gid,winner,S.round,count(0),count(1),kills(0),kills(1),TN[S.first],S.t0?Math.round((Date.now()-S.t0)/600)/100:'']);
+  return rows;
+}
+function dlSummary(){download(`noaim_summary_${fileStamp()}.csv`,toCSV(summaryRows()));}
+let HOLD_SAVE=false;
+function saveGame(){if(HOLD_SAVE)return;try{if(S.phase==='draft'&&!S.ev.length){localStorage.removeItem(SAVE_KEY);return;}localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
+function loadGame(){try{const v=localStorage.getItem(SAVE_KEY);return v?JSON.parse(v):null;}catch(e){return null;}}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+
+/* ========== 描画 ========== */
+function esc(s){return String(s);}
+function render(){
+  const app=document.getElementById('app');
+  let h=`<header><h1>No AIM <span class="x" aria-hidden="true"></span> <span class="ver">${VER}</span></h1><div class="btns" style="margin:0"><button id="bNew">最初から</button></div></header>`;
+  if(S.phase==='draft')h+=renderDraft();
+  else{
+    h+=renderStatus();
+    h+=renderBoard();
+    if(UI.toast)h+=`<div class="hint"><b>${UI.toast}</b></div>`;
+    if(UI.mode)h+=renderHint();
+    if(S.phase==='place')h+=renderPlace();
+    else h+=renderPlay();
+    if(S.phase!=='place')h+=`<div class="btns"><button id="bCsvLog">行動ログをCSVで保存</button><button id="bCsvSum">キャラ別集計をCSVで保存</button></div>`;
+    h+=`<details class="log"><summary>ログ</summary><ol reversed>${S.log.slice().reverse().map(l=>`<li>${l}</li>`).join('')}</ol></details>`;
+    h+=`<p class="legend">マスの色は領土、左上の三角は占領度1、点線の枠は占領封鎖、建物はマスの模様と左下の記号で表示（▲と太枠は高台で小さな矢印が階段側、🌲と緑は木、▦と斜線はブロック壁）。🤖は回復ボット。キャラの上の小さな三角が向きです。同じマスを続けてタップすると、重なっているキャラを順に選べます。</p>`;
+  }
+  app.innerHTML=h;
+  bind();
+  saveGame();
+}
+function renderStatus(){
+  const a=count(0),b=count(1);
+  let chips='';
+  if(S.phase==='place')chips=`<span class="chip ${S.sp?'b':'a'}">${TN[S.sp]}の配置</span><span class="chip">${S.placeStep==='bld'?'建物を3つ配置':'キャラ5体を配置'}</span>`;
+  else if(S.phase==='play')chips=`<span class="chip ${S.active?'b':'a'}">${TN[S.active]}のターン</span><span class="chip">ラウンド ${S.round}/${MAXR}</span><span class="chip">${['','段階① 移動・スキル・ウルト','段階② 攻撃・回復','段階③ 同マス戦闘','ターン終了待ち'][S.step]}</span>`;
+  else chips=`<span class="chip">ゲーム終了：${S.winner===null?'引き分け':TN[S.winner]+'の勝利'}</span>`;
+  return `<div class="status">${chips}</div>
+  <div class="terr"><span class="na">A ${a}</span><div class="bar" aria-label="領土 A${a} B${b}"><i style="width:${a/63*100}%;background:var(--a)"></i><i style="flex:1"></i><i style="width:${b/63*100}%;background:var(--b)"></i><span class="mk" style="left:${WIN/63*100}%"></span><span class="mk" style="left:${(63-WIN)/63*100}%"></span></div><span class="nb">${b} B</span></div>`;
+}
+function renderBoard(){
+  let h='<div class="board" role="grid">';
+  const tg=UI.mode?UI.mode.targets:null;const chosen=UI.mode&&UI.mode.kind==='multi'?UI.mode.chosen:[];
+  for(let y=0;y<7;y++)for(let x=0;x<=10;x++){
+    const k=K(x,y);
+    const isSp=(x===0||x===10)&&y===3;
+    if(!inB(x,y)&&!isSp){h+='<div class="cell void"></div>';continue;}
+    let cls='cell';
+    if(isSp)cls+=` spawn t${x===0?0:1}`;
+    else if(S.owner[x][y]!==null)cls+=` o${S.owner[x][y]}`;
+    let isT=tg&&tg.has(k);
+    if(isT)cls+=' tg';
+    if(isT&&UI.mode.kind==='multi'&&tg.get(k).some(v=>chosen.includes(v)))cls+=' pick';
+    if(S.phase==='place'&&inB(x,y)&&(S.placeStep==='bld'?S.owner[x][y]===S.sp:startCol(S.sp,x)))cls+=' tg';
+    let inner='';
+    if(inB(x,y)){
+      const b=bAt(x,y);
+      if(b&&!(S.phase==='place'&&b.team!==S.sp)){
+        inner+=`<span class="bpat ${b.type}"></span><span class="bld">${BLD[b.type].g}</span>`;
+        if(b.type==='hg'){const s=b.stair;const pos=s[1]<0?'top:0;left:50%;transform:translateX(-50%)':s[1]>0?'bottom:0;left:50%;transform:translateX(-50%)':s[0]<0?'left:1px;top:50%;transform:translateY(-50%)':'right:1px;top:50%;transform:translateY(-50%)';inner+=`<span class="stair" style="${pos}">${ARW[s.join(',')]}</span>`;}
+      }
+      const o=S.occ[x][y];if(o)inner+=`<span class="occ t${o.team}"></span>`;
+      const lk=S.lock[x][y];if(lk.length)inner+=`<span class="lock t${lk[0].team}"></span>`;
+      const bt=botAt(x,y);if(bt)inner+=`<span class="bot" title="回復ボット">🤖</span>`;
+    }
+    for(const c of charsAt(x,y)){
+      if(!visible(c))continue;
+      const rot={'0,-1':0,'1,0':90,'0,1':180,'-1,0':270}[c.face.join(',')];
+      const hpw=Math.max(0,Math.min(100,c.hp/D(c).hp*100));
+      inner+=`<span class="tok t${c.team}${UI.sel===c.uid?' sel':''}${c.stun?' stun':''}${c.wait?' wait':''}" title="${D(c).name}"><span class="f" style="transform:rotate(${rot}deg)"></span>${D(c).s}<span class="hp"><i style="width:${hpw}%"></i></span></span>`;
+    }
+    h+=`<div class="${cls}" data-x="${x}" data-y="${y}" tabindex="0" aria-label="(${x},${y})">${inner}</div>`;
+  }
+  return h+'</div>';
+}
+function renderHint(){
+  const m=UI.mode;
+  return `<div class="hint"><b>${m.hint||''}${m.kind==='multi'?`（${m.chosen.length}/${m.max}）`:''}</b>${m.kind==='multi'?`<button class="primary" id="bConfirm" ${m.chosen.length?'':'disabled'}>決定</button>`:''}<button id="bCancel">キャンセル</button></div>`;
+}
+function renderDraft(){
+  const t=S.sp;
+  let h=`<div class="status"><span class="chip ${t?'b':'a'}">${TN[t]}の編成</span></div><p>Tank 2体から1体、DPS 3体から2体、Support 3体から2体を選んでください。選ばなかったキャラは控えになり、リスポーン時に同じ役割どうしで交代できます。</p>`;
+  for(const r of ['T','D','S']){
+    h+=`<h3>${ROLE_NAME[r]}（${UI.pick[r].length}/${PICK[r]}）</h3><div class="cards">`;
+    for(const id of POOL[r]){const d=DEFS[id];
+      h+=`<button class="card${UI.pick[r].includes(id)?' on':''}" data-draft="${r}:${id}"><div class="nm">${d.name}</div><div class="small">耐久${d.hp}／機動${d.mob}／攻撃${d.atk}／射程 前方${d.rng}${d.heal?`／回復${d.heal}`:''}</div><div class="small">${d.trait?'特性：'+d.trait+'<br>':''}スキル「${d.skill.name}」CT${d.skill.ct}：${d.skill.d}<br>ウルト「${d.ult.name}」：${d.ult.d}</div></button>`;}
+    h+='</div>';
+  }
+  const ok=['T','D','S'].every(r=>UI.pick[r].length===PICK[r]);
+  return h+`<div class="btns"><button class="primary" id="bDraft" ${ok?'':'disabled'}>この5体で決定</button></div>`;
+}
+function renderPlace(){
+  const t=S.sp;let h='<div class="panel">';
+  if(S.placeStep==='bld'){
+    const n=Object.values(S.bld).filter(b=>b.team===t).length;
+    h+=`<h2>建物の配置（${n}/3）</h2><p class="small">種類を選んで、自分の領土のマスをタップ。置いた建物をもう一度タップすると外せます。</p><div class="btns">${Object.keys(BLD).map(k=>`<button data-bt="${k}" class="${UI.bType===k?'on':''}">${BLD[k].g} ${BLD[k].n}</button>`).join('')}</div>`;
+    if(UI.bType==='hg')h+=`<h3>高台の階段の向き</h3><div class="btns">${DIR4.map(d=>`<button data-st="${d.join(',')}" class="${UI.stair.join(',')===d.join(',')?'on':''}">${ARW[d.join(',')]}</button>`).join('')}</div>`;
+    h+=`<div class="btns"><button class="primary" id="bPlace" ${n===3?'':'disabled'}>キャラの配置へ</button></div>`;
+  }else{
+    h+=`<h2>キャラの配置</h2><p class="small">下のキャラを選び、リスポーン側から2列目までのマス（光っているマス）をタップ。向きもここで決めます。</p>`;
+    h+=rosterHtml(t,true);
+    const c=UI.sel&&S.chars[UI.sel];
+    if(c&&c.team===t)h+=`<h3>${D(c).name}の向き</h3>`+faceHtml(c);
+    const ok=activeChars(t).every(c=>c.x!==null);
+    h+=`<div class="btns"><button class="primary" id="bPlace" ${ok?'':'disabled'}>配置完了</button></div>`;
+  }
+  return h+'</div>';
+}
+function faceHtml(c){
+  const b=(d)=>`<button data-face="${d.join(',')}" aria-label="向き${ARW[d.join(',')]}" class="${c.face.join(',')===d.join(',')?'on':''}">${ARW[d.join(',')]}</button>`;
+  return `<div class="face"><span></span>${b([0,-1])}<span></span>${b([-1,0])}${b([0,1])}${b([1,0])}</div>`;
+}
+function rosterHtml(t,place){
+  return `<div class="roster">${activeChars(t).map(c=>{
+    const done=!place&&(c.acted||c.wait||c.stun);
+    return `<button data-sel="${c.uid}" class="${UI.sel===c.uid?'on':''}"><span class="dot t${c.team}"></span><span class="${done?'done':''}">${D(c).name}${place&&c.x===null?'（未配置）':''}${!place?` ${c.hp}${tempSum(c)?'+'+tempSum(c):''}/${D(c).hp}`:''}</span></button>`;}).join('')}</div>`;
+}
+function renderPlay(){
+  let h='<div class="panel">';
+  if(S.phase==='play'){
+    const stepBtn=S.step===1?'<button class="primary" id="bStep">段階②へ進む</button>':S.step===2?'<button class="primary" id="bStep">同マス戦闘へ進む</button>':S.step===4?'<button class="primary" id="bEnd">ターン終了</button>':'';
+    h+=`<div class="btns" style="margin-top:0">${stepBtn}<button id="bUndo" ${UNDO.length&&S.step<3?'':'disabled'}>1手戻す</button></div>`;
+    h+=rosterHtml(S.active,false);
+  }
+  const c=UI.sel&&S.chars[UI.sel];
+  if(c)h+=charPanel(c);
+  else h+='<p class="small" style="margin-bottom:0">キャラを選ぶと、ステータスと行動ボタンが表示されます。</p>';
+  return h+'</div>';
+}
+function charPanel(c){
+  const d=D(c);
+  let h=`<h3 style="margin-top:14px"><span class="role ${d.role}">${ROLE_NAME[d.role]}</span> ${TN[c.team]}の${d.name}</h3>`;
+  h+=`<div class="stats"><span>耐久 <b>${c.hp}${tempSum(c)?'＋'+tempSum(c):''}/${d.hp}</b></span><span>機動 <b>${d.mob+c.mob}</b></span><span>攻撃 <b>${d.atk}</b></span><span>射程 <b>前方${d.rng}</b></span>${d.heal?`<span>回復 <b>${d.heal}</b>（斜め前2＋前方${d.hrng}）</span>`:''}<span>向き <b>${ARW[c.face.join(',')]}</b></span></div>`;
+  const st=[];
+  if(c.wait)st.push(c.skip>0?'撃破されリスポーン待機中（次の自分のターンも行動不能）':'リスポーン待機中（次の自分のターンから行動可）');
+  if(c.inBattle&&S.step===2&&c.team===S.active)st.push('同マス戦闘に参加（通常攻撃不可）');
+  if(c.stun)st.push('行動不能');
+  if(c.marks.length)st.push('マークされている');
+  if(c.snipe)st.push('狙撃体勢');if(c.focus)st.push('集中砲火');if(c.back)st.push('背面攻撃準備');
+  if(ctLeft(c))st.push(`スキルはラウンド${c.cd+D(c).skill.ct}から使用可`);else if(c.skillT)st.push('スキル使用済み（このターン）');
+  if(c.ult)st.push('ウルト使用済み');
+  if(st.length)h+=`<div class="abil">${st.join('／')}</div>`;
+  if(d.trait)h+=`<div class="abil"><b>特性</b>：${d.trait}</div>`;
+  h+=`<div class="abil"><b>スキル「${d.skill.name}」CT${d.skill.ct}</b>：${d.skill.d}</div><div class="abil"><b>ウルト「${d.ult.name}」</b>：${d.ult.d}</div>`;
+  if(!canAct(c))return h;
+  const on=onBoard(c);
+  const btns=[];
+  if(S.step===1){
+    btns.push(`<button data-act="move" ${!c.moved&&!c.snipe?'':'disabled'}>移動</button>`);
+    btns.push(`<button data-act="skill" ${on&&!c.skillT&&!ctLeft(c)?'':'disabled'}>スキル</button>`);
+    btns.push(`<button data-act="ult" ${on&&!c.ult?'':'disabled'}>ウルト</button>`);
+    if(atSpawn(c)&&c.swapOk&&!c.moved)S.bench[c.team].filter(u=>D(S.chars[u]).role===d.role).forEach(u=>btns.push(`<button data-swap="${u}">${D(S.chars[u]).name}に交代</button>`));
+  }else if(S.step===2){
+    btns.push(`<button data-act="attack" ${on&&!c.acted&&!c.inBattle?'':'disabled'}>通常攻撃</button>`);
+    if(d.heal)btns.push(`<button data-act="heal" ${on&&!c.acted?'':'disabled'}>回復</button>`);
+  }
+  if(btns.length)h+=`<div class="btns">${btns.join('')}</div>`;
+  if(S.step<=2&&on){
+    const can=!c.acted&&c.faces<3;
+    h+=`<h3>向きを変える（あと${3-c.faces}回）</h3>${can?faceHtml(c):''}`;
+  }
+  return h;
+}
+function bind(){
+  const q=(s)=>document.querySelectorAll(s);
+  const on=(id,f)=>{const e=document.getElementById(id);if(e)e.onclick=f;};
+  on('bNew',()=>showOv({title:'最初からやり直しますか？',body:'現在のゲームと記録は消えます。記録を残す場合は、先にCSVで保存してください。',opts:[{label:'最初から',primary:true,fn:()=>{clearSave();S=fresh();UI=freshUI();UNDO=[];render();showPass('No AIM テストプレイ','まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());}},{label:'行動ログをCSVで保存',fn:()=>{dlLog();render();}},{label:'やめる'}]}));
+  q('.cell[data-x]').forEach(e=>{const f=()=>cellClick(+e.dataset.x,+e.dataset.y);e.onclick=f;e.onkeydown=(ev)=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();f();}};});
+  q('[data-draft]').forEach(e=>e.onclick=()=>{const [r,id]=e.dataset.draft.split(':');draftToggle(r,id);});
+  on('bDraft',draftDone);
+  q('[data-bt]').forEach(e=>e.onclick=()=>{UI.bType=e.dataset.bt;render();});
+  q('[data-st]').forEach(e=>e.onclick=()=>{UI.stair=e.dataset.st.split(',').map(Number);render();});
+  on('bPlace',placeDone);
+  q('[data-sel]').forEach(e=>e.onclick=()=>{UI.sel=e.dataset.sel;UI.mode=null;render();});
+  q('[data-face]').forEach(e=>e.onclick=()=>{const c=S.chars[UI.sel];if(c)setFace(c,e.dataset.face.split(',').map(Number));});
+  q('[data-act]').forEach(e=>e.onclick=()=>{const c=S.chars[UI.sel];const a=e.dataset.act;UI.mode=null;
+    if(a==='move')startMove(c);else if(a==='skill')useSkill(c);else if(a==='ult')useUlt(c);else if(a==='attack')startAttack(c);else if(a==='heal')startHeal(c);});
+  q('[data-swap]').forEach(e=>e.onclick=()=>swapChar(S.chars[UI.sel],e.dataset.swap));
+  on('bStep',nextStep);on('bEnd',endTurn);on('bUndo',undo);on('bCancel',cancelMode);
+  on('bConfirm',()=>UI.mode&&UI.mode.confirm());
+  on('bCsvLog',dlLog);on('bCsvSum',dlSummary);
+}
+
+/* ========== 起動 ========== */
+S=fresh();UI=freshUI();
+const SAVED=loadGame();
+if(SAVED&&SAVED.ev&&SAVED.ev.length){
+  HOLD_SAVE=true;render();
+  showOv({title:'前回のゲームが残っています',body:`ラウンド${SAVED.round}・${SAVED.phase==='over'?'終了済み':'途中'}のゲームです。続きから再開すると、記録もそのまま引き継がれます。`,opts:[
+    {label:'続きから再開',primary:true,fn:()=>{HOLD_SAVE=false;S=SAVED;if(S.phase==='play'&&S.step===3)S.step=2;render();}},
+    {label:'新しく始める',fn:()=>{HOLD_SAVE=false;clearSave();S=fresh();render();showPass('No AIM テストプレイ','1台の端末を2人で交代して遊ぶモードです。まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());}}]});
+}else{
+render();
+showPass('No AIM テストプレイ','1台の端末を2人で交代して遊ぶモードです。まずプレイヤーAがキャラを編成します。','Aの編成を始める',()=>render());
+}
+</script>
+</body>
+</html>
